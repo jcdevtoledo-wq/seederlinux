@@ -30,7 +30,7 @@ export const ORGANIZATIONS_SEED: Organization[] = [
     metodoAd: "sssd",
     distrosSuportadas: ["linuxmint", "ubuntu", "debian"],
     ambientesSuportados: ["Cinnamon", "MATE", "XFCE"],
-    serial: 2025033101,
+    serial: 2025062501,
     scriptsAtivos: 12,
     estacoes: 184,
     cor: "oklch(0.62 0.16 155)",
@@ -96,13 +96,13 @@ export const ORGANIZATIONS_SEED: Organization[] = [
 
 const bashIngresso = `#!/usr/bin/env bash
 # ingressar_dominio.sh — Orquestrador oficial de ingresso AD
-# SeederLinux • Script base imutável; parametrizado pela OM via /opt/softwarelivre/etc/<sigla>.conf
+# SeederLinux • Script base imutável; parametrizado pela OM via /opt/seederlinux/etc/<sigla>.conf
 set -euo pipefail
 
 # Carrega variáveis da OM (DOMINIO, DC_HOSTNAME, DC_IP, METODO_AD, ...)
-source /opt/softwarelivre/etc/\${ORG:-om}.conf
-source /opt/softwarelivre/lib/comum.sh
-source /opt/softwarelivre/lib/detectar_ambiente.sh
+source /opt/seederlinux/etc/\${ORG:-om}.conf
+source /opt/seederlinux/lib/comum.sh
+source /opt/seederlinux/lib/detectar_ambiente.sh
 
 log "[\${SIGLA}] Iniciando ingresso no domínio \${DOMINIO} via \${METODO_AD}"
 
@@ -111,22 +111,22 @@ echo "nameserver \${DNS_PRIMARIO}" | sudo tee /etc/resolv.conf >/dev/null
 [[ -n "\${DNS_SECUNDARIO:-}" ]] && echo "nameserver \${DNS_SECUNDARIO}" | sudo tee -a /etc/resolv.conf >/dev/null
 
 if [[ "\${METODO_AD}" == "sssd" || "\${METODO_AD}" == "auto" ]]; then
-  source /opt/softwarelivre/lib/backend_sssd.sh
+  source /opt/seederlinux/lib/backend_sssd.sh
   configurar_sssd
 else
-  source /opt/softwarelivre/lib/backend_winbind.sh
+  source /opt/seederlinux/lib/backend_winbind.sh
   configurar_winbind
 fi
 
 realm discover "\${DOMINIO}"
-realm join -U administrador "\${DOMINIO}"
+realm join -u administrador "\${DOMINIO}"
 log "[\${SIGLA}] Ingresso concluído com sucesso."
 `;
 
 const bashPersonalizar = `#!/usr/bin/env bash
 # personalizar_estacao.sh — Aplica identidade visual da OM
 set -euo pipefail
-source /opt/softwarelivre/etc/\${ORG:-om}.conf
+source /opt/seederlinux/etc/\${ORG:-om}.conf
 
 log "[\${SIGLA}] Aplicando wallpaper: \${WALLPAPER_URL:-padrão}"
 gsettings set org.cinnamon.desktop.background picture-uri "file://\${WALLPAPER_URL}" || true
@@ -141,16 +141,16 @@ EOF
 
 const bashLogon = `#!/usr/bin/env bash
 # logon.sh — Rotinas de sessão (login PAM)
-source /opt/softwarelivre/etc/\${ORG:-om}.conf
+source /opt/seederlinux/etc/\${ORG:-om}.conf
 
-/opt/softwarelivre/bin/verifica_serial.sh || true
+/opt/seederlinux/bin/verifica_serial.sh || true
 [[ -n "\${SERVIDOR_ARQUIVOS:-}" ]] && mount -a -t cifs 2>/dev/null || true
-sudo -u "\${USER}" /opt/softwarelivre/user/kixtart.sh
+sudo -u "\${USER}" /opt/seederlinux/user/kixtart.sh
 `;
 
 const bashTrocaSenha = `#!/usr/bin/env bash
 # trocar_senha.sh — Interface Zenity para troca de senha AD
-source /opt/softwarelivre/etc/\${ORG:-om}.conf
+source /opt/seederlinux/etc/\${ORG:-om}.conf
 
 NOVA=$(zenity --password --title "Trocar senha de \${USER} (\${DOMINIO})")
 [[ -z "\${NOVA}" ]] && exit 1
@@ -161,7 +161,7 @@ zenity --info --text "Senha alterada com sucesso em \${DOMINIO}."
 const bashImpressoras = `#!/usr/bin/env bash
 # instalar_impressoras.sh — Cadastra filas CUPS apontando para o servidor SMB
 set -euo pipefail
-source /opt/softwarelivre/etc/\${ORG:-om}.conf
+source /opt/seederlinux/etc/\${ORG:-om}.conf
 
 [[ -z "\${SERVIDOR_ARQUIVOS:-}" ]] && { echo "SERVIDOR_ARQUIVOS não definido"; exit 1; }
 lpadmin -p fila_segura -E -v "smb://\${SERVIDOR_ARQUIVOS}/print$/fila_segura"
@@ -171,7 +171,7 @@ lpadmin -d fila_segura
 const bashOcs = `#!/usr/bin/env bash
 # ocs_inventario.sh — Configura agente OCS Inventory NG
 set -euo pipefail
-source /opt/softwarelivre/etc/\${ORG:-om}.conf
+source /opt/seederlinux/etc/\${ORG:-om}.conf
 
 [[ -z "\${SERVIDOR_OCS:-}" ]] && { echo "SERVIDOR_OCS não definido"; exit 0; }
 sed -i "s|server=.*|server=\${SERVIDOR_OCS}|" /etc/ocsinventory/ocsinventory-agent.cfg
@@ -181,14 +181,14 @@ systemctl restart ocsinventory-agent
 
 const bashLogoff = `#!/usr/bin/env bash
 # logoff.sh — Higienização ao final da sessão
-source /opt/softwarelivre/etc/\${ORG:-om}.conf
+source /opt/seederlinux/etc/\${ORG:-om}.conf
 rm -rf /tmp/sess_* || true
 `;
 
 const bashLegados = `#!/usr/bin/env bash
 # instalar_legados.sh — Compatibilidade com sistemas legados (SIGADAER etc.)
 set -euo pipefail
-source /opt/softwarelivre/etc/\${ORG:-om}.conf
+source /opt/seederlinux/etc/\${ORG:-om}.conf
 
 apt-get update
 apt-get install -y openjdk-8-jre firefox-esr
@@ -212,7 +212,7 @@ export const SCRIPTS_SEED: SeederScript[] = [
     variaveisUsadas: ["DOMINIO", "DC_HOSTNAME", "DC_IP", "METODO_AD", "DNS_PRIMARIO", "DNS_SECUNDARIO", "SIGLA"],
     oficial: true,
     versao: "2.4.1",
-    serial: 2025033101,
+    serial: 2025062501,
     status: "validado",
     compartilhado: true,
     conteudo: bashIngresso,
@@ -235,7 +235,7 @@ export const SCRIPTS_SEED: SeederScript[] = [
     variaveisUsadas: ["WALLPAPER_URL", "TEMA_GTK", "HOMEPAGE", "SIGLA"],
     oficial: true,
     versao: "1.8.0",
-    serial: 2025033101,
+    serial: 2025062501,
     status: "validado",
     compartilhado: true,
     conteudo: bashPersonalizar,
@@ -258,7 +258,7 @@ export const SCRIPTS_SEED: SeederScript[] = [
     variaveisUsadas: ["SERVIDOR_ARQUIVOS"],
     oficial: true,
     versao: "1.3.2",
-    serial: 2025033101,
+    serial: 2025062501,
     status: "publicado",
     compartilhado: true,
     conteudo: bashLogon,
@@ -304,7 +304,7 @@ export const SCRIPTS_SEED: SeederScript[] = [
     variaveisUsadas: ["DOMINIO", "DC_HOSTNAME"],
     oficial: true,
     versao: "1.0.4",
-    serial: 2025033101,
+    serial: 2025062501,
     status: "validado",
     compartilhado: true,
     conteudo: bashTrocaSenha,

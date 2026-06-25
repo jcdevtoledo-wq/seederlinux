@@ -76,7 +76,7 @@ export function ScriptFormDialog({ trigger, script }: Props) {
       serial: Number(new Date().toISOString().slice(0, 10).replace(/-/g, "") + "01"),
       status: "rascunho",
       compartilhado: false,
-      conteudo: "#!/usr/bin/env bash\nsource /opt/softwarelivre/etc/${ORG}.conf\n# Novo script\n",
+      conteudo: "#!/usr/bin/env bash\nsource /opt/seederlinux/etc/${ORG}.conf\n# Novo script\n",
       atualizadoEm: new Date().toISOString().slice(0, 10),
     },
   );

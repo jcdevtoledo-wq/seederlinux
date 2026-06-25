@@ -118,7 +118,7 @@ export function AppSidebar() {
 
       <div className="px-6 py-4 border-t border-sidebar-border text-[11px] text-sidebar-foreground/60">
         <div className="font-mono">v2.0.0 · {MODE === "hub" ? "Hub" : "Full"}</div>
-        <div>Software Livre · FAB</div>
+        <div>built for institutions · open by design</div>
       </div>
     </aside>
   );

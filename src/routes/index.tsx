@@ -1,17 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import {
-  Terminal,
-  Server,
-  Shield,
-  Layers,
-  Zap,
-  Network,
-  ArrowRight,
-  CheckCircle2,
-  Building2,
-  ScrollText,
-} from "lucide-react";
+import { Terminal, Server, Shield, Layers, Zap, Network, ArrowRight, CircleCheck as CheckCircle2, Building2, ScrollText } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Landing,
@@ -19,13 +8,13 @@ export const Route = createFileRoute("/")({
 
 const SAMPLE_BASH = `#!/usr/bin/env bash
 # ingressar_dominio.sh — gerado por SeederLinux
-source /opt/softwarelivre/etc/comara.conf
+source /opt/seederlinux/etc/comara.conf
 
 detectar_ambiente
 detectar_dominio
 configurar_sssd
 
-realm join -U admin "\${DOMINIO}"
+realm join -u admin "\${DOMINIO}"
 log "estação ingressada em \${DOMINIO_NETBIOS}"`;
 
 function Landing() {
@@ -65,7 +54,7 @@ function Landing() {
             <div className="space-y-6">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/20 border border-accent/30 text-xs font-mono">
                 <span className="size-1.5 rounded-full bg-success animate-pulse" />
-                v0.1.0 — MVP institucional
+                v3.0 — MVP institucional
               </div>
               <h1 className="font-display text-4xl lg:text-6xl font-bold leading-[1.05] tracking-tight text-balance">
                 Estações Linux em domínio,{" "}
@@ -109,7 +98,7 @@ function Landing() {
                   {SAMPLE_BASH}
                 </pre>
                 <div className="border-t border-white/10 px-5 py-3 text-xs font-mono opacity-70">
-                  ✓ ingressed in COMARA · serial 2025033101
+                  ✓ ingressed in COMARA · serial 2025062501
                 </div>
               </div>
             </div>
@@ -237,7 +226,7 @@ function Landing() {
 
       <footer className="border-t py-10">
         <div className="max-w-7xl mx-auto px-4 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-muted-foreground font-mono">
-          <span>© {new Date().getFullYear()} SeederLinux · Software Livre</span>
+          <span>© {new Date().getFullYear()} SeederLinux · built for institutions · open by design</span>
           <span>built for institutions · open by design</span>
         </div>
       </footer>

@@ -24,7 +24,7 @@ Gerado em ${new Date().toISOString()}
 ## Modelo de execução
 
 Os scripts são **bases oficiais imutáveis**. Todos fazem \`source\` do arquivo
-\`/opt/softwarelivre/etc/${org.sigla.toLowerCase()}.conf\` para carregar as variáveis
+\`/opt/seederlinux/etc/${org.sigla.toLowerCase()}.conf\` para carregar as variáveis
 desta OM. Para alterar comportamento, edite as variáveis — não os scripts.
 
 ## Verificação de integridade
@@ -33,13 +33,13 @@ O arquivo \`manifest.json\` contém o SHA-256 de cada script incluído.
 Para auditar:
 
 \`\`\`bash
-cd /opt/softwarelivre
+cd /opt/seederlinux
 sha256sum bin/*.sh user/*.sh lib/*.sh 2>/dev/null
 \`\`\`
 
 ## Estrutura
 \`\`\`
-softwarelivre/
+seederlinux/
 ├── etc/${org.sigla.toLowerCase()}.conf   # variáveis da OM
 ├── etc/versao.conf            # serial global
 ├── bin/                       # scripts orquestradores (root)
@@ -52,8 +52,8 @@ softwarelivre/
 ## Instalação
 \`\`\`bash
 sudo tar -xzf ${org.sigla.toLowerCase()}_seeder.tar.gz -C /opt/
-sudo chmod -R 755 /opt/softwarelivre/bin /opt/softwarelivre/user
-sudo /opt/softwarelivre/bin/ingressar_dominio.sh
+sudo chmod -R 755 /opt/seederlinux/bin /opt/seederlinux/user
+sudo /opt/seederlinux/bin/ingressar_dominio.sh
 \`\`\`
 
 ## Scripts incluídos (${scripts.length})
@@ -100,7 +100,7 @@ export async function buildBundle(
   variables?: import("./types").VariableDef[],
 ): Promise<Blob> {
   const zip = new JSZip();
-  const root = zip.folder("softwarelivre")!;
+  const root = zip.folder("seederlinux")!;
 
   root.file(`etc/${org.sigla.toLowerCase()}.conf`, generateOrgConfBash(org, variables));
   root.file("etc/versao.conf", `SERIAL_GLOBAL=${org.serial}\nSIGLA=${org.sigla}\n`);

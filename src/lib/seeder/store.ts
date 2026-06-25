@@ -94,7 +94,7 @@ export function addVariable(v: VariableDef) {
 export function generateOrgConfBash(org: Organization, vars: VariableDef[] = state.variables): string {
   const linhas: string[] = [
     `# ============================================================`,
-    `# /opt/softwarelivre/etc/${org.sigla.toLowerCase()}.conf`,
+    `# /opt/seederlinux/etc/${org.sigla.toLowerCase()}.conf`,
     `# Configuracao da OM ${org.sigla} - gerado por SeederLinux`,
     `# Data: ${new Date().toISOString()}`,
     `# Serial: ${org.serial}`,
