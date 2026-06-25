@@ -1,0 +1,734 @@
+// SeederLinux V2.0 - Data Model
+// Based on Documento 03 - Modelo de Dados
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum AppRole {
+  admin_gap
+  operador_om
+  auditor
+}
+
+enum ADMethod {
+  sssd
+  winbind
+  auto
+}
+
+enum AuthBackend {
+  winbind
+  sssd
+}
+
+enum AuthMethod {
+  ads
+  ldap
+}
+
+enum DeployProfile {
+  minimal
+  standard
+  full
+  custom
+}
+
+enum StationStatus {
+  nunca
+  ok
+  atrasada
+  registered
+  online
+  offline
+  blocked
+  decommissioned
+}
+
+enum ScriptStatus {
+  rascunho
+  pronto
+  depreciado
+}
+
+enum ScriptCategory {
+  core
+  sistema
+  rede
+  seguranca
+  usuario
+  desktop
+  automacao
+  custom
+  dns
+  ntp
+  proxy
+  ad
+  browser
+  printer
+  branding
+}
+
+enum OrgStatus {
+  active
+  inactive
+  setup_pending
+}
+
+// =============================================================================
+// USERS & AUTH
+// =============================================================================
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  password     String
+  displayName  String?
+  blocked      Boolean    @default(false)
+  lastLogin    DateTime?  @map("last_login")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  roles        UserRole[]
+
+  @@map("users")
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  role      AppRole
+  orgSigla  String?  @map("org_sigla")
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role, orgSigla])
+  @@map("user_roles")
+}
+
+// =============================================================================
+// ORGANIZATIONS (Complete Model from Doc 03)
+// =============================================================================
+
+model Organization {
+  id                String       @id @default(cuid())
+  nome              String
+  sigla             String       @unique
+  descricao         String       @default("")
+  status            OrgStatus    @default(setup_pending)  @map("status")
+
+  // Domain Configuration (OBRIGATORIO)
+  fqdn              String       @default("")             // ex: comara.intraer
+  netbios           String       @default("")             // ex: COMARA
+  realm             String       @default("")            // ex: COMARA.INTRAER
+
+  // Domain Controllers (OBRIGATORIO)
+  dcPrimaryIp       String       @default("")  @map("dc_primary_ip")    // IP do DC primario
+  dcSecondaryIp     String?      @map("dc_secondary_ip")   // IP do DC secundario (opcional)
+  dcFqdn            String       @default("")  @map("dc_fqdn")          // Nome do DC
+
+  // DNS Configuration (OBRIGATORIO)
+  dnsPrimary        String       @default("")  @map("dns_primary")
+  dnsSecondary      String?      @map("dns_secondary")
+  searchDomains     String[]     @default([])  @map("search_domains")
+
+  // NTP Configuration (OPCIONAL)
+  ntpServers        String[]     @default([])  @map("ntp_servers")
+  timezone          String       @default("America/Sao_Paulo")
+
+  // Proxy Configuration (OBRIGATORIO)
+  httpProxy         String       @default("")  @map("http_proxy")       // ex: 10.108.88.4:8080
+  httpsProxy        String       @default("")  @map("https_proxy")
+  ftpProxy          String?      @map("ftp_proxy")
+  noProxy           String[]     @default([])  @map("no_proxy")
+
+  // Authentication (OBRIGATORIO)
+  authBackend       AuthBackend  @default(sssd)  @map("auth_backend")
+  authMethod        AuthMethod   @default(ads)   @map("auth_method")
+
+  // Printers (OPCIONAL)
+  printServer       String?      @map("print_server")
+  defaultPrinter    String?      @map("default_printer")
+
+  // Deployment Profile
+  deployProfile     DeployProfile @default(standard)  @map("deploy_profile")
+
+  // Legacy fields (keep for compatibility)
+  dominio           String       @default("")
+  dcHostname        String       @default("")  @map("dc_hostname")
+  dcIp              String       @default("")  @map("dc_ip")
+  metodoAd          ADMethod     @default(auto) @map("metodo_ad")
+  distrosSuportadas String[]     @default([])
+  ambientesSuportados String[]   @default([])
+
+  // Serial and Stats
+  serial            BigInt       @default(0)
+  cor               String       @default("oklch(0.6 0.15 200)")
+  estacoes          Int          @default(0)
+  scriptsAtivos     Int          @default(0)
+
+  // Timestamps
+  criadoEm          DateTime     @default(now()) @map("criado_em")
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  // Relations
+  variables         OrgVariable[]
+  stations          Station[]
+  branding          BrandingConfig?
+  profiles          SeederProfile[]
+  browserPolicies   BrowserPolicy[]
+
+  @@map("organizations")
+}
+
+model OrgVariable {
+  orgId     String
+  key       String
+  value     String   @default("")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@id([orgId, key])
+  @@map("org_variables")
+}
+
+// =============================================================================
+// BRANDING
+// =============================================================================
+
+model BrandingConfig {
+  orgId         String   @id @map("org_id")
+  displayName   String?  @map("display_name")    // Nome para exibicao
+  wallpaperUrl  String?  @map("wallpaper_url")
+  wallpaperLogin String? @map("wallpaper_login")
+  logoUrl       String?  @map("logo_url")
+  greeterUrl    String?  @map("greeter_url")
+  theme         String   @default("Mint-Y-Dark")
+  conkyEnabled  Boolean  @default(false) @map("conky_enabled")
+  conkyConfig   Json     @default("{}") @map("conky_config")
+  shortcutsEnabled Boolean @default(true) @map("shortcuts_enabled")
+  updatedAt     DateTime @default(now()) @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("branding_config")
+}
+
+// =============================================================================
+// BROWSER POLICIES
+// =============================================================================
+
+model BrowserPolicy {
+  id              String   @id @default(cuid())
+  orgId           String   @map("org_id")
+  browser         String   // firefox, chrome, chromium
+  homepage        String?
+  bookmarksEnabled Boolean @default(false) @map("bookmarks_enabled")
+  proxyEnabled    Boolean  @default(false) @map("proxy_enabled")
+  certificatesEnabled Boolean @default(false) @map("certificates_enabled")
+  telemetryDisabled Boolean @default(true) @map("telemetry_disabled")
+  updatesDisabled Boolean @default(false) @map("updates_disabled")
+  config         Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  bookmarks    BrowserBookmark[]
+
+  @@unique([orgId, browser])
+  @@map("browser_policies")
+}
+
+model BrowserBookmark {
+  id        String   @id @default(cuid())
+  policyId  String   @map("policy_id")
+  title     String
+  url       String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  policy    BrowserPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@map("browser_bookmarks")
+}
+
+// =============================================================================
+// SCRIPTS
+// =============================================================================
+
+model Script {
+  id              String         @id @default(cuid())
+  nome            String
+  descricao       String         @default("")
+  categoria       ScriptCategory @default(custom)
+  versao          String         @default("1.0.0")
+  serial          BigInt          @default(0)
+  status          ScriptStatus   @default(rascunho)
+  conteudo        String         @default("")
+  variaveisUsadas String[]       @default([])
+  autor           String         @default("")
+  oficial         Boolean        @default(false)
+  scriptType      String         @default("CUSTOM") // CORE ou CUSTOM
+  checksum        String?
+  compatibilidade String[]       @default(["ubuntu", "linuxmint", "debian"])
+  prioidade       Int            @default(0)
+  mandatario      Boolean        @default(false)
+  criadoEm        DateTime       @default(now()) @map("criado_em")
+  atualizadoEm    DateTime       @default(now()) @map("atualizado_em")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  profiles        SeederProfile[]
+
+  @@map("scripts")
+}
+
+model SeederProfile {
+  id                String   @id @default(cuid())
+  nome              String
+  descricao         String   @default("")
+  scriptIds         String[] @default([])
+  organizacaoOrigem String?  @map("organizacao_origem")
+  publico           Boolean  @default(false)
+  profileType       String   @default("standard") // minimal, standard, full, custom
+  criadoEm          DateTime @default(now()) @map("criado_em")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization      Organization? @relation(fields: [organizacaoOrigem], references: [sigla])
+  scripts           Script[]
+
+  @@map("profiles_seeder")
+}
+
+// =============================================================================
+// STATIONS
+// =============================================================================
+
+model Station {
+  id             String        @id @default(cuid())
+  hostname       String
+  assetTag       String?       @map("asset_tag")
+  serialNumber   String?       @map("serial_number")
+  orgId          String        @map("org_id")
+  ip             String        @default("")
+  distro         String        @default("ubuntu")
+  desktop        String        @default("GNOME")
+  kernelVersion  String?       @map("kernel_version")
+  serialAplicado BigInt        @default(0) @map("serial_aplicado")
+  ultimoCheckin  DateTime?     @map("ultimo_checkin")
+  status         StationStatus @default(registered)
+  perfilAtivo    String?       @map("perfil_ativo")
+  usuario        String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization    Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  tokens          StationToken[]
+  runs            StationRun[]
+  hardware        HardwareInventory?
+  software        SoftwareInventory?
+  networkInterfaces NetworkInterface[]
+  users           StationUser[]
+
+  @@map("stations")
+}
+
+model HardwareInventory {
+  id             String   @id @default(cuid())
+  stationId      String   @unique @map("station_id")
+  cpuModel       String?  @map("cpu_model")
+  cpuCores       Int?     @map("cpu_cores")
+  memoryMb       Int?     @map("memory_mb")
+  diskTotalGb    Int?     @map("disk_total_gb")
+  motherboard    String?
+  biosVersion    String?  @map("bios_version")
+  updatedAt      DateTime @default(now()) @map("updated_at")
+
+  station        Station  @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@map("hardware_inventory")
+}
+
+model SoftwareInventory {
+  id               String   @id @default(cuid())
+  stationId        String   @unique @map("station_id")
+  osName           String?  @map("os_name")
+  osVersion        String?  @map("os_version")
+  desktopEnv       String?  @map("desktop_env")
+  kernelVersion    String?  @map("kernel_version")
+  packages         Json     @default("[]")
+  updatedAt        DateTime @default(now()) @map("updated_at")
+
+  station          Station  @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@map("software_inventory")
+}
+
+model NetworkInterface {
+  id            String   @id @default(cuid())
+  stationId     String   @map("station_id")
+  interfaceName String   @map("interface_name")
+  macAddress    String?  @map("mac_address")
+  ipAddress     String?  @map("ip_address")
+  gateway       String?
+  dnsPrimary   String?  @map("dns_primary")
+  dnsSecondary String?  @map("dns_secondary")
+  isPrimary     Boolean  @default(false) @map("is_primary")
+  updatedAt     DateTime @default(now()) @map("updated_at")
+
+  station       Station  @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@map("network_interfaces")
+}
+
+model StationToken {
+  id          String    @id @default(uuid())
+  stationId   String    @map("station_id")
+  tokenHash   String    @unique @map("token_hash")
+  label       String    @default("agente")
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime? @map("last_used_at")
+  revokedAt   DateTime? @map("revoked_at")
+
+  station     Station   @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@map("station_tokens")
+}
+
+model StationRun {
+  id             String    @id @default(uuid())
+  stationId      String    @map("station_id")
+  profileId      String?   @map("profile_id")
+  serialAlvo     BigInt    @default(0) @map("serial_alvo")
+  serialAnterior BigInt    @default(0) @map("serial_anterior")
+  status         String    @default("ok")
+  scriptsTotal   Int       @default(0) @map("scripts_total")
+  scriptsOk      Int       @default(0) @map("scripts_ok")
+  duracaoMs      Int       @default(0) @map("duracao_ms")
+  agentVersion   String?   @map("agent_version")
+  log            Json      @default("[]")
+  startedAt      DateTime  @default(now()) @map("started_at")
+  finishedAt     DateTime  @default(now()) @map("finished_at")
+
+  station        Station   @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@map("station_runs")
+}
+
+model StationUser {
+  id          String    @id @default(cuid())
+  stationId   String    @map("station_id")
+  username    String
+  domainUser  Boolean   @default(false) @map("domain_user")
+  lastLogin   DateTime? @map("last_login")
+  createdAt   DateTime  @default(now())
+
+  station     Station  @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@map("station_users")
+}
+
+// =============================================================================
+// CATALOGS & CONFIG
+// =============================================================================
+
+model VariableCatalog {
+  key          String   @id
+  label        String
+  descricao    String   @default("")
+  tipo         String   @default("string")
+  escopo       String   @default("custom")
+  oficial      Boolean  @default(false)
+  obrigatoria  Boolean  @default(false)
+  exemplo      String?
+  defaultValue String?  @map("default_value")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("variable_catalog")
+}
+
+model SystemConfig {
+  key       String   @id
+  value     String   @default("")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("system_config")
+}
+
+// =============================================================================
+// AUDIT
+// =============================================================================
+
+model AuditEvent {
+  id         String   @id @default(uuid())
+  ts         DateTime @default(now())
+  atorId     String   @map("ator_id")
+  atorEmail  String?  @map("ator_email")
+  orgId      String?  @map("org_id")
+  categoria  String
+  acao       String
+  alvo       String?
+  alvoId     String?  @map("alvo_id")
+  detalhes   String?
+  oldValor   String?  @map("old_value")
+  newValor   String?  @map("new_value")
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+
+  @@index([ts])
+  @@index([atorId])
+  @@index([categoria])
+  @@index([orgId])
+  @@map("audit_events")
+}
+
+model SystemEvent {
+  id         String   @id @default(cuid())
+  stationId  String?  @map("station_id")
+  orgId      String?  @map("org_id")
+  eventType  String   @map("event_type")
+  severity   String   @default("info")
+  message    String
+  metadata   Json     @default("{}")
+  ts         DateTime @default(now())
+
+  @@index([ts])
+  @@index([stationId])
+  @@index([orgId])
+  @@map("system_events")
+}
+
+// =============================================================================
+// JOBS & DEPLOYMENTS
+// =============================================================================
+
+model Job {
+  id          String   @id @default(cuid())
+  orgId       String?  @map("org_id")
+  stationId   String?  @map("station_id")
+  jobType     String   @map("job_type") // deploy, update, script, inventory
+  payload     Json     @default("{}")
+  status      String   @default("pending") // pending, running, completed, failed
+  scheduledAt DateTime @default(now()) @map("scheduled_at")
+  startedAt   DateTime? @map("started_at")
+  finishedAt  DateTime? @map("finished_at")
+  result      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("jobs")
+}
+
+model Deployment {
+  id          String   @id @default(cuid())
+  stationId   String   @map("station_id")
+  profileId   String?  @map("profile_id")
+  status      String   @default("pending")
+  startedAt   DateTime @default(now()) @map("started_at")
+  finishedAt  DateTime? @map("finished_at")
+  output      String?
+  error       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tasks       DeploymentTask[]
+
+  @@map("deployments")
+}
+
+model DeploymentTask {
+  id             String   @id @default(cuid())
+  deploymentId   String   @map("deployment_id")
+  scriptId       String   @map("script_id")
+  status         String   @default("pending")
+  executionOrder Int      @default(0) @map("execution_order")
+  output         String?
+  startedAt      DateTime? @map("started_at")
+  finishedAt     DateTime? @map("finished_at")
+  createdAt      DateTime @default(now())
+
+  deployment     Deployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+
+  @@map("deployment_tasks")
+}
+
+// =============================================================================
+// FILES / STORAGE
+// =============================================================================
+
+model FileRecord {
+  id          String   @id @default(cuid())
+  orgId       String?  @map("org_id")
+  fileType    String   @map("file_type") // logo, wallpaper, greeter, certificate, package, script
+  filename    String
+  path        String
+  checksum    String?
+  size        Int?
+  mimeType    String?  @map("mime_type")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("files")
+}
+
+// =============================================================================
+// PRINTER PROFILES
+// =============================================================================
+
+model PrinterProfile {
+  id             String   @id @default(cuid())
+  orgId          String   @map("org_id")
+  name           String
+  cupsServer     String?  @map("cups_server")
+  defaultQueue   String?  @map("default_queue")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  queues         PrinterQueue[]
+
+  @@map("printer_profiles")
+}
+
+model PrinterQueue {
+  id              String   @id @default(cuid())
+  profileId       String   @map("profile_id")
+  queueName       String
+  location        String?
+  driver          String?
+  uri             String?
+  isDefault       Boolean  @default(false) @map("is_default")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  printerProfile  PrinterProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("printer_queues")
+}
+
+// =============================================================================
+// SOFTWARE PROFILES
+// =============================================================================
+
+model SoftwareProfile {
+  id          String   @id @default(cuid())
+  orgId       String   @map("org_id")
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  packages    SoftwarePackage[]
+
+  @@map("software_profiles")
+}
+
+model SoftwarePackage {
+  id             String   @id @default(cuid())
+  profileId      String   @map("profile_id")
+  packageName    String   @map("package_name")
+  packageVersion String?  @map("package_version")
+  enabled        Boolean  @default(true)
+  mandatory     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  softwareProfile SoftwareProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("software_packages")
+}
+
+model LegacyApplication {
+  id             String   @id @default(cuid())
+  orgId          String   @map("org_id")
+  name           String
+  description    String?
+  category       String?
+  installScript  String?  @map("install_script")
+  dependencies   String[] @default([])
+  enabled        Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  versions       LegacyApplicationVersion[]
+
+  @@map("legacy_applications")
+}
+
+model LegacyApplicationVersion {
+  id             String   @id @default(cuid())
+  applicationId  String   @map("application_id")
+  version        String
+  installerScript String? @map("installer_script")
+  checksum       String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  legacyApplication LegacyApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@map("legacy_application_versions")
+}
+
+// =============================================================================
+// REPOSITORIES
+// =============================================================================
+
+model Repository {
+  id          String   @id @default(cuid())
+  orgId       String?  @map("org_id")
+  name        String
+  type        String   // apt, rpm, local
+  url         String?
+  enabled     Boolean  @default(true)
+  isOfficial  Boolean  @default(false) @map("is_official")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("repositories")
+}
+
+// =============================================================================
+// UPDATE CHANNELS
+// =============================================================================
+
+model UpdateChannel {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  updates     Update[]
+
+  @@map("update_channels")
+}
+
+model Update {
+  id          String   @id @default(cuid())
+  channelId   String   @map("channel_id")
+  version     String
+  description String?
+  releaseDate DateTime @default(now()) @map("release_date")
+  checksum    String?
+  changelog   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  channel     UpdateChannel @relation(fields: [channelId], references: [id])
+
+  @@map("updates")
+}

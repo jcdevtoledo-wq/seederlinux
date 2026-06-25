@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.mark_stale_stations() FROM PUBLIC, anon, authenticated;

@@ -1,0 +1,109 @@
+_format_version: "1.1"
+
+services:
+  - name: auth-v1-all
+    url: http://auth:9999/
+    routes:
+      - name: auth-v1-all
+        strip_path: true
+        paths:
+          - /auth/v1/
+    plugins:
+      - name: cors
+        config:
+          origins: ["*"]
+          methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+          headers: [Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, apikey, authorization, x-client-info, x-supabase-api-version, accept-profile, prefer]
+          exposed_headers: [X-Auth-Token, x-supabase-api-version, content-range, accept-profile, prefer]
+          credentials: true
+          max_age: 3600
+
+  - name: rest-v1-all
+    url: http://rest:3000/
+    routes:
+      - name: rest-v1-all
+        strip_path: true
+        paths:
+          - /rest/v1/
+    plugins:
+      - name: cors
+        config:
+          origins: ["*"]
+          methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+          headers: [Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, apikey, authorization, x-client-info, x-supabase-api-version, accept-profile, prefer]
+          exposed_headers: [X-Auth-Token, x-supabase-api-version, content-range, accept-profile, prefer]
+          credentials: true
+          max_age: 3600
+      - name: key-auth
+        config:
+          hide_credentials: false
+      - name: acl
+        config:
+          hide_groups_header: true
+          allow: [anon, service_role]
+
+  - name: realtime-v1-all
+    url: http://realtime:4000/socket/
+    routes:
+      - name: realtime-v1-all
+        strip_path: true
+        paths:
+          - /realtime/v1/
+    plugins:
+      - name: cors
+        config:
+          origins: ["*"]
+          methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+          headers: [Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, apikey, authorization, x-client-info, x-supabase-api-version, accept-profile, prefer]
+          exposed_headers: [X-Auth-Token, x-supabase-api-version, content-range, accept-profile, prefer]
+          credentials: true
+          max_age: 3600
+
+  - name: storage-v1-all
+    url: http://storage:5000/
+    routes:
+      - name: storage-v1-all
+        strip_path: true
+        paths:
+          - /storage/v1/
+    plugins:
+      - name: cors
+        config:
+          origins: ["*"]
+          methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+          headers: [Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, apikey, authorization, x-client-info, x-supabase-api-version, accept-profile, prefer]
+          exposed_headers: [X-Auth-Token, x-supabase-api-version, content-range, accept-profile, prefer]
+          credentials: true
+          max_age: 3600
+
+  - name: meta-all
+    url: http://meta:8080/
+    routes:
+      - name: meta-all
+        strip_path: true
+        paths:
+          - /pg/
+    plugins:
+      - name: basic-auth
+        config:
+          hide_credentials: false
+
+# Consumers with API keys - will be substituted at runtime
+# Placeholders: __ANON_KEY__, __SERVICE_ROLE_KEY__, __DASHBOARD_USER__, __DASHBOARD_PASS__
+consumers:
+  - username: anon
+    keyauth_credentials:
+      - key: __ANON_KEY__
+  - username: service_role
+    keyauth_credentials:
+      - key: __SERVICE_ROLE_KEY__
+  - username: __DASHBOARD_USER__
+    basicauth_credentials:
+      - username: __DASHBOARD_USER__
+        password: __DASHBOARD_PASS__
+
+acls:
+  - consumer: anon
+    group: anon
+  - consumer: service_role
+    group: service_role
