@@ -9,36 +9,31 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as PainelRouteImport } from './routes/painel'
 import { Route as SetupRouteImport } from './routes/setup'
+import { Route as PainelRouteImport } from './routes/painel'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as PainelIndexRouteImport } from './routes/painel.index'
-import { Route as PainelOrganizacoesOrgIdRouteImport } from './routes/painel.organizacoes.$orgId'
-import { Route as PainelScriptsScriptIdRouteImport } from './routes/painel.scripts.$scriptId'
-import { Route as PainelAuditoriaIndexRouteImport } from './routes/painel.auditoria.index'
-import { Route as PainelBrandingIndexRouteImport } from './routes/painel.branding.index'
-import { Route as PainelConfiguracoesIndexRouteImport } from './routes/painel.configuracoes.index'
-import { Route as PainelDesktopIndexRouteImport } from './routes/painel.desktop.index'
-import { Route as PainelEstacoesIndexRouteImport } from './routes/painel.estacoes.index'
-import { Route as PainelHubIndexRouteImport } from './routes/painel.hub.index'
-import { Route as PainelImpressorasIndexRouteImport } from './routes/painel.impressoras.index'
-import { Route as PainelNavegadoresIndexRouteImport } from './routes/painel.navegadores.index'
-import { Route as PainelOrganizacoesIndexRouteImport } from './routes/painel.organizacoes.index'
-import { Route as PainelPerfisIndexRouteImport } from './routes/painel.perfis.index'
-import { Route as PainelScriptsIndexRouteImport } from './routes/painel.scripts.index'
-import { Route as PainelSegurancaIndexRouteImport } from './routes/painel.seguranca.index'
-import { Route as PainelUsuariosIndexRouteImport } from './routes/painel.usuarios.index'
 import { Route as PainelVariaveisIndexRouteImport } from './routes/painel.variaveis.index'
+import { Route as PainelUsuariosIndexRouteImport } from './routes/painel.usuarios.index'
+import { Route as PainelSegurancaIndexRouteImport } from './routes/painel.seguranca.index'
+import { Route as PainelScriptsIndexRouteImport } from './routes/painel.scripts.index'
+import { Route as PainelPerfisIndexRouteImport } from './routes/painel.perfis.index'
+import { Route as PainelOrganizacoesIndexRouteImport } from './routes/painel.organizacoes.index'
+import { Route as PainelNavegadoresIndexRouteImport } from './routes/painel.navegadores.index'
+import { Route as PainelImpressorasIndexRouteImport } from './routes/painel.impressoras.index'
+import { Route as PainelHubIndexRouteImport } from './routes/painel.hub.index'
+import { Route as PainelEstacoesIndexRouteImport } from './routes/painel.estacoes.index'
+import { Route as PainelDesktopIndexRouteImport } from './routes/painel.desktop.index'
+import { Route as PainelConfiguracoesIndexRouteImport } from './routes/painel.configuracoes.index'
+import { Route as PainelBrandingIndexRouteImport } from './routes/painel.branding.index'
+import { Route as PainelAuditoriaIndexRouteImport } from './routes/painel.auditoria.index'
+import { Route as PainelScriptsScriptIdRouteImport } from './routes/painel.scripts.$scriptId'
+import { Route as PainelOrganizacoesOrgIdRouteImport } from './routes/painel.organizacoes.$orgId'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PainelRoute = PainelRouteImport.update({
@@ -46,9 +41,14 @@ const PainelRoute = PainelRouteImport.update({
   path: '/painel',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SetupRoute = SetupRouteImport.update({
-  id: '/setup',
-  path: '/setup',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PainelIndexRoute = PainelIndexRouteImport.update({
@@ -56,24 +56,59 @@ const PainelIndexRoute = PainelIndexRouteImport.update({
   path: '/',
   getParentRoute: () => PainelRoute,
 } as any)
-const PainelOrganizacoesOrgIdRoute = PainelOrganizacoesOrgIdRouteImport.update({
-  id: '/organizacoes/$orgId',
-  path: '/organizacoes/$orgId',
+const PainelVariaveisIndexRoute = PainelVariaveisIndexRouteImport.update({
+  id: '/variaveis/',
+  path: '/variaveis/',
   getParentRoute: () => PainelRoute,
 } as any)
-const PainelScriptsScriptIdRoute = PainelScriptsScriptIdRouteImport.update({
-  id: '/scripts/$scriptId',
-  path: '/scripts/$scriptId',
+const PainelUsuariosIndexRoute = PainelUsuariosIndexRouteImport.update({
+  id: '/usuarios/',
+  path: '/usuarios/',
   getParentRoute: () => PainelRoute,
 } as any)
-const PainelAuditoriaIndexRoute = PainelAuditoriaIndexRouteImport.update({
-  id: '/auditoria/',
-  path: '/auditoria/',
+const PainelSegurancaIndexRoute = PainelSegurancaIndexRouteImport.update({
+  id: '/seguranca/',
+  path: '/seguranca/',
   getParentRoute: () => PainelRoute,
 } as any)
-const PainelBrandingIndexRoute = PainelBrandingIndexRouteImport.update({
-  id: '/branding/',
-  path: '/branding/',
+const PainelScriptsIndexRoute = PainelScriptsIndexRouteImport.update({
+  id: '/scripts/',
+  path: '/scripts/',
+  getParentRoute: () => PainelRoute,
+} as any)
+const PainelPerfisIndexRoute = PainelPerfisIndexRouteImport.update({
+  id: '/perfis/',
+  path: '/perfis/',
+  getParentRoute: () => PainelRoute,
+} as any)
+const PainelOrganizacoesIndexRoute = PainelOrganizacoesIndexRouteImport.update({
+  id: '/organizacoes/',
+  path: '/organizacoes/',
+  getParentRoute: () => PainelRoute,
+} as any)
+const PainelNavegadoresIndexRoute = PainelNavegadoresIndexRouteImport.update({
+  id: '/navegadores/',
+  path: '/navegadores/',
+  getParentRoute: () => PainelRoute,
+} as any)
+const PainelImpressorasIndexRoute = PainelImpressorasIndexRouteImport.update({
+  id: '/impressoras/',
+  path: '/impressoras/',
+  getParentRoute: () => PainelRoute,
+} as any)
+const PainelHubIndexRoute = PainelHubIndexRouteImport.update({
+  id: '/hub/',
+  path: '/hub/',
+  getParentRoute: () => PainelRoute,
+} as any)
+const PainelEstacoesIndexRoute = PainelEstacoesIndexRouteImport.update({
+  id: '/estacoes/',
+  path: '/estacoes/',
+  getParentRoute: () => PainelRoute,
+} as any)
+const PainelDesktopIndexRoute = PainelDesktopIndexRouteImport.update({
+  id: '/desktop/',
+  path: '/desktop/',
   getParentRoute: () => PainelRoute,
 } as any)
 const PainelConfiguracoesIndexRoute =
@@ -82,59 +117,24 @@ const PainelConfiguracoesIndexRoute =
     path: '/configuracoes/',
     getParentRoute: () => PainelRoute,
   } as any)
-const PainelDesktopIndexRoute = PainelDesktopIndexRouteImport.update({
-  id: '/desktop/',
-  path: '/desktop/',
+const PainelBrandingIndexRoute = PainelBrandingIndexRouteImport.update({
+  id: '/branding/',
+  path: '/branding/',
   getParentRoute: () => PainelRoute,
 } as any)
-const PainelEstacoesIndexRoute = PainelEstacoesIndexRouteImport.update({
-  id: '/estacoes/',
-  path: '/estacoes/',
+const PainelAuditoriaIndexRoute = PainelAuditoriaIndexRouteImport.update({
+  id: '/auditoria/',
+  path: '/auditoria/',
   getParentRoute: () => PainelRoute,
 } as any)
-const PainelHubIndexRoute = PainelHubIndexRouteImport.update({
-  id: '/hub/',
-  path: '/hub/',
+const PainelScriptsScriptIdRoute = PainelScriptsScriptIdRouteImport.update({
+  id: '/scripts/$scriptId',
+  path: '/scripts/$scriptId',
   getParentRoute: () => PainelRoute,
 } as any)
-const PainelImpressorasIndexRoute = PainelImpressorasIndexRouteImport.update({
-  id: '/impressoras/',
-  path: '/impressoras/',
-  getParentRoute: () => PainelRoute,
-} as any)
-const PainelNavegadoresIndexRoute = PainelNavegadoresIndexRouteImport.update({
-  id: '/navegadores/',
-  path: '/navegadores/',
-  getParentRoute: () => PainelRoute,
-} as any)
-const PainelOrganizacoesIndexRoute = PainelOrganizacoesIndexRouteImport.update({
-  id: '/organizacoes/',
-  path: '/organizacoes/',
-  getParentRoute: () => PainelRoute,
-} as any)
-const PainelPerfisIndexRoute = PainelPerfisIndexRouteImport.update({
-  id: '/perfis/',
-  path: '/perfis/',
-  getParentRoute: () => PainelRoute,
-} as any)
-const PainelScriptsIndexRoute = PainelScriptsIndexRouteImport.update({
-  id: '/scripts/',
-  path: '/scripts/',
-  getParentRoute: () => PainelRoute,
-} as any)
-const PainelSegurancaIndexRoute = PainelSegurancaIndexRouteImport.update({
-  id: '/seguranca/',
-  path: '/seguranca/',
-  getParentRoute: () => PainelRoute,
-} as any)
-const PainelUsuariosIndexRoute = PainelUsuariosIndexRouteImport.update({
-  id: '/usuarios/',
-  path: '/usuarios/',
-  getParentRoute: () => PainelRoute,
-} as any)
-const PainelVariaveisIndexRoute = PainelVariaveisIndexRouteImport.update({
-  id: '/variaveis/',
-  path: '/variaveis/',
+const PainelOrganizacoesOrgIdRoute = PainelOrganizacoesOrgIdRouteImport.update({
+  id: '/organizacoes/$orgId',
+  path: '/organizacoes/$orgId',
   getParentRoute: () => PainelRoute,
 } as any)
 
@@ -287,18 +287,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/painel': {
@@ -308,11 +301,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PainelRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/setup': {
-      id: '/setup'
-      path: '/setup'
-      fullPath: '/setup'
-      preLoaderRoute: typeof SetupRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/painel/': {
@@ -322,102 +322,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PainelIndexRouteImport
       parentRoute: typeof PainelRoute
     }
-    '/painel/organizacoes/$orgId': {
-      id: '/painel/organizacoes/$orgId'
-      path: '/organizacoes/$orgId'
-      fullPath: '/painel/organizacoes/$orgId'
-      preLoaderRoute: typeof PainelOrganizacoesOrgIdRouteImport
-      parentRoute: typeof PainelRoute
-    }
-    '/painel/scripts/$scriptId': {
-      id: '/painel/scripts/$scriptId'
-      path: '/scripts/$scriptId'
-      fullPath: '/painel/scripts/$scriptId'
-      preLoaderRoute: typeof PainelScriptsScriptIdRouteImport
-      parentRoute: typeof PainelRoute
-    }
-    '/painel/auditoria/': {
-      id: '/painel/auditoria/'
-      path: '/auditoria'
-      fullPath: '/painel/auditoria/'
-      preLoaderRoute: typeof PainelAuditoriaIndexRouteImport
-      parentRoute: typeof PainelRoute
-    }
-    '/painel/branding/': {
-      id: '/painel/branding/'
-      path: '/branding'
-      fullPath: '/painel/branding/'
-      preLoaderRoute: typeof PainelBrandingIndexRouteImport
-      parentRoute: typeof PainelRoute
-    }
-    '/painel/configuracoes/': {
-      id: '/painel/configuracoes/'
-      path: '/configuracoes'
-      fullPath: '/painel/configuracoes/'
-      preLoaderRoute: typeof PainelConfiguracoesIndexRouteImport
-      parentRoute: typeof PainelRoute
-    }
-    '/painel/desktop/': {
-      id: '/painel/desktop/'
-      path: '/desktop'
-      fullPath: '/painel/desktop/'
-      preLoaderRoute: typeof PainelDesktopIndexRouteImport
-      parentRoute: typeof PainelRoute
-    }
-    '/painel/estacoes/': {
-      id: '/painel/estacoes/'
-      path: '/estacoes'
-      fullPath: '/painel/estacoes/'
-      preLoaderRoute: typeof PainelEstacoesIndexRouteImport
-      parentRoute: typeof PainelRoute
-    }
-    '/painel/hub/': {
-      id: '/painel/hub/'
-      path: '/hub'
-      fullPath: '/painel/hub/'
-      preLoaderRoute: typeof PainelHubIndexRouteImport
-      parentRoute: typeof PainelRoute
-    }
-    '/painel/impressoras/': {
-      id: '/painel/impressoras/'
-      path: '/impressoras'
-      fullPath: '/painel/impressoras/'
-      preLoaderRoute: typeof PainelImpressorasIndexRouteImport
-      parentRoute: typeof PainelRoute
-    }
-    '/painel/navegadores/': {
-      id: '/painel/navegadores/'
-      path: '/navegadores'
-      fullPath: '/painel/navegadores/'
-      preLoaderRoute: typeof PainelNavegadoresIndexRouteImport
-      parentRoute: typeof PainelRoute
-    }
-    '/painel/organizacoes/': {
-      id: '/painel/organizacoes/'
-      path: '/organizacoes'
-      fullPath: '/painel/organizacoes/'
-      preLoaderRoute: typeof PainelOrganizacoesIndexRouteImport
-      parentRoute: typeof PainelRoute
-    }
-    '/painel/perfis/': {
-      id: '/painel/perfis/'
-      path: '/perfis'
-      fullPath: '/painel/perfis/'
-      preLoaderRoute: typeof PainelPerfisIndexRouteImport
-      parentRoute: typeof PainelRoute
-    }
-    '/painel/scripts/': {
-      id: '/painel/scripts/'
-      path: '/scripts'
-      fullPath: '/painel/scripts/'
-      preLoaderRoute: typeof PainelScriptsIndexRouteImport
-      parentRoute: typeof PainelRoute
-    }
-    '/painel/seguranca/': {
-      id: '/painel/seguranca/'
-      path: '/seguranca'
-      fullPath: '/painel/seguranca/'
-      preLoaderRoute: typeof PainelSegurancaIndexRouteImport
+    '/painel/variaveis/': {
+      id: '/painel/variaveis/'
+      path: '/variaveis'
+      fullPath: '/painel/variaveis/'
+      preLoaderRoute: typeof PainelVariaveisIndexRouteImport
       parentRoute: typeof PainelRoute
     }
     '/painel/usuarios/': {
@@ -427,11 +336,102 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PainelUsuariosIndexRouteImport
       parentRoute: typeof PainelRoute
     }
-    '/painel/variaveis/': {
-      id: '/painel/variaveis/'
-      path: '/variaveis'
-      fullPath: '/painel/variaveis/'
-      preLoaderRoute: typeof PainelVariaveisIndexRouteImport
+    '/painel/seguranca/': {
+      id: '/painel/seguranca/'
+      path: '/seguranca'
+      fullPath: '/painel/seguranca/'
+      preLoaderRoute: typeof PainelSegurancaIndexRouteImport
+      parentRoute: typeof PainelRoute
+    }
+    '/painel/scripts/': {
+      id: '/painel/scripts/'
+      path: '/scripts'
+      fullPath: '/painel/scripts/'
+      preLoaderRoute: typeof PainelScriptsIndexRouteImport
+      parentRoute: typeof PainelRoute
+    }
+    '/painel/perfis/': {
+      id: '/painel/perfis/'
+      path: '/perfis'
+      fullPath: '/painel/perfis/'
+      preLoaderRoute: typeof PainelPerfisIndexRouteImport
+      parentRoute: typeof PainelRoute
+    }
+    '/painel/organizacoes/': {
+      id: '/painel/organizacoes/'
+      path: '/organizacoes'
+      fullPath: '/painel/organizacoes/'
+      preLoaderRoute: typeof PainelOrganizacoesIndexRouteImport
+      parentRoute: typeof PainelRoute
+    }
+    '/painel/navegadores/': {
+      id: '/painel/navegadores/'
+      path: '/navegadores'
+      fullPath: '/painel/navegadores/'
+      preLoaderRoute: typeof PainelNavegadoresIndexRouteImport
+      parentRoute: typeof PainelRoute
+    }
+    '/painel/impressoras/': {
+      id: '/painel/impressoras/'
+      path: '/impressoras'
+      fullPath: '/painel/impressoras/'
+      preLoaderRoute: typeof PainelImpressorasIndexRouteImport
+      parentRoute: typeof PainelRoute
+    }
+    '/painel/hub/': {
+      id: '/painel/hub/'
+      path: '/hub'
+      fullPath: '/painel/hub/'
+      preLoaderRoute: typeof PainelHubIndexRouteImport
+      parentRoute: typeof PainelRoute
+    }
+    '/painel/estacoes/': {
+      id: '/painel/estacoes/'
+      path: '/estacoes'
+      fullPath: '/painel/estacoes/'
+      preLoaderRoute: typeof PainelEstacoesIndexRouteImport
+      parentRoute: typeof PainelRoute
+    }
+    '/painel/desktop/': {
+      id: '/painel/desktop/'
+      path: '/desktop'
+      fullPath: '/painel/desktop/'
+      preLoaderRoute: typeof PainelDesktopIndexRouteImport
+      parentRoute: typeof PainelRoute
+    }
+    '/painel/configuracoes/': {
+      id: '/painel/configuracoes/'
+      path: '/configuracoes'
+      fullPath: '/painel/configuracoes/'
+      preLoaderRoute: typeof PainelConfiguracoesIndexRouteImport
+      parentRoute: typeof PainelRoute
+    }
+    '/painel/branding/': {
+      id: '/painel/branding/'
+      path: '/branding'
+      fullPath: '/painel/branding/'
+      preLoaderRoute: typeof PainelBrandingIndexRouteImport
+      parentRoute: typeof PainelRoute
+    }
+    '/painel/auditoria/': {
+      id: '/painel/auditoria/'
+      path: '/auditoria'
+      fullPath: '/painel/auditoria/'
+      preLoaderRoute: typeof PainelAuditoriaIndexRouteImport
+      parentRoute: typeof PainelRoute
+    }
+    '/painel/scripts/$scriptId': {
+      id: '/painel/scripts/$scriptId'
+      path: '/scripts/$scriptId'
+      fullPath: '/painel/scripts/$scriptId'
+      preLoaderRoute: typeof PainelScriptsScriptIdRouteImport
+      parentRoute: typeof PainelRoute
+    }
+    '/painel/organizacoes/$orgId': {
+      id: '/painel/organizacoes/$orgId'
+      path: '/organizacoes/$orgId'
+      fullPath: '/painel/organizacoes/$orgId'
+      preLoaderRoute: typeof PainelOrganizacoesOrgIdRouteImport
       parentRoute: typeof PainelRoute
     }
   }

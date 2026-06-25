@@ -25,12 +25,13 @@ export function AppHeader() {
   const nav = useNavigate();
   const { data: organizations = [] } = useOrganizations();
   const { data: scripts = [] } = useScripts();
-  const { user, displayName, roles, signOut } = useAuth();
-  const initials = (displayName ?? user?.email ?? "?").slice(0, 2).toUpperCase();
+  const { user, roles, logout } = useAuth();
+  const initials = (user?.displayName ?? user?.email ?? "?").slice(0, 2).toUpperCase();
   const roleLabel =
     roles.includes("admin_gap") ? "admin GAP" :
     roles.includes("operador_om") ? "operador OM" :
     roles.includes("auditor") ? "auditor" : "sem papel";
+  const displayName = user?.displayName;
 
   return (
     <header className="h-16 border-b bg-card/80 backdrop-blur sticky top-0 z-30">
@@ -78,7 +79,7 @@ export function AppHeader() {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={async () => {
-                  await signOut();
+                  await logout();
                   nav({ to: "/login" });
                 }}
               >
