@@ -27,7 +27,7 @@ import { lintScript, lintSummary, type LintIssue } from "@/lib/seeder/lint";
 import { logEvent } from "@/lib/seeder/audit";
 import type { SeederScript, ScriptCategory } from "@/lib/seeder/types";
 import { toast } from "sonner";
-import { Upload, AlertOctagon, AlertTriangle, Info } from "lucide-react";
+import { Upload, OctagonAlert as AlertOctagon, TriangleAlert as AlertTriangle, Info } from "lucide-react";
 
 const CATEGORIAS: ScriptCategory[] = [
   "ingresso", "personalizacao", "logon", "logoff",
