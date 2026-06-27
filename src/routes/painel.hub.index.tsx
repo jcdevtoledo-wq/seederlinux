@@ -44,6 +44,10 @@ function HubPage() {
   const importarPerfil = async (perfilId: string) => {
     const original = profiles.find((p) => p.id === perfilId);
     if (!original) return;
+    if (organizations.length === 0) {
+      toast.error("Crie uma organizacao antes de importar perfis.");
+      return;
+    }
     try {
       await profilesApi.importProfile(perfilId, organizations[0]?.sigla ?? "");
       qc.invalidateQueries({ queryKey: ["profiles_seeder"] });

@@ -15,7 +15,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Search, Variable, Loader as Loader2, BookOpen, Tag, CircleAlert as AlertCircle, CircleCheck as CheckCircle } from "lucide-react";
-import { EmptyOrgState } from "@/components/seeder/EmptyOrgState";
 
 export const Route = createFileRoute("/painel/variaveis/")({
   head: () => ({ meta: [{ title: "Variaveis - SeederLinux" }] }),
@@ -76,10 +75,9 @@ function VariablesPage() {
             Gerencie o catalogo de variaveis do sistema.
           </p>
         </div>
-        <EmptyOrgState
-          title="Nenhuma OM configurada"
-          description="O catalogo de variaveis e vinculado a uma organizacao. Crie uma organizacao primeiro."
-        />
+        <div className="rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground">
+          Nenhuma OM configurada. O catalogo global de variaveis esta visivel abaixo, mas para definir valores por OM e necessario criar uma organizacao.
+        </div>
       </div>
     );
   }
@@ -160,7 +158,7 @@ function VariablesPage() {
         <div className="flex items-center justify-center py-20 text-muted-foreground">
           <Loader2 className="size-5 animate-spin mr-2" /> Carregando catalogo...
         </div>
-      ) : selectedOrgId ? (
+      ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map((entry: any) => (
             <Card key={entry.key} className="hover:shadow-elegant hover:border-primary/50 transition-all">
@@ -230,11 +228,6 @@ function VariablesPage() {
               </CardContent>
             </Card>
           ))}
-        </div>
-      ) : (
-        <div className="text-center py-12 text-muted-foreground">
-          <Variable className="size-10 mx-auto mb-3" />
-          <p className="text-sm">Selecione uma organizacao para visualizar o catalogo de variaveis.</p>
         </div>
       )}
 
