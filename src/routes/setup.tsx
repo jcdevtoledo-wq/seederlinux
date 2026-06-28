@@ -13,6 +13,7 @@ import {
   Lock,
   Building2,
   ShieldCheck,
+  ShieldAlert,
   Globe,
   ArrowLeft,
 } from "lucide-react";
@@ -27,7 +28,8 @@ const STEPS = [
   { id: 1, label: "Token", icon: Lock },
   { id: 2, label: "Administrador", icon: ShieldCheck },
   { id: 3, label: "Organização", icon: Building2 },
-  { id: 4, label: "Concluído", icon: CheckCircle2 },
+  { id: 4, label: "TLS", icon: ShieldAlert },
+  { id: 5, label: "Concluído", icon: CheckCircle2 },
 ] as const;
 
 type Step = (typeof STEPS)[number]["id"];
@@ -61,6 +63,16 @@ function SetupPage() {
     NTP_SERVER: "pool.ntp.org",
     HOMEPAGE: "",
     DISPLAY_NAME: "",
+  });
+
+  // Step 4: TLS (Documento 15 v3.1)
+  const [tls, setTls] = useState({
+    mode: "SELF_SIGNED" as "SELF_SIGNED" | "PKI" | "ACME",
+    hostname: "",
+    sans: "localhost, 127.0.0.1",
+    pkiCert: "",
+    pkiKey: "",
+    pkiCa: "",
   });
 
   useEffect(() => {
@@ -138,12 +150,41 @@ function SetupPage() {
     return true;
   };
 
+  const validateStep4 = () => {
+    if (tls.mode === "PKI") {
+      if (!tls.pkiCert || !tls.pkiKey) {
+        toast.error("Modo PKI: cole o certificado e a chave PEM.");
+        return false;
+      }
+      if (!tls.pkiCert.includes("BEGIN CERTIFICATE")) {
+        toast.error("Certificado PEM inválido (esperado '-----BEGIN CERTIFICATE-----').");
+        return false;
+      }
+      if (!tls.pkiKey.includes("PRIVATE KEY")) {
+        toast.error("Chave PEM inválida (esperado '-----BEGIN PRIVATE KEY-----').");
+        return false;
+      }
+    }
+    if (tls.mode === "ACME") {
+      toast.error("Modo ACME ainda não implementado. Use SELF_SIGNED ou PKI.");
+      return false;
+    }
+    return true;
+  };
+
   const submitSetup = async () => {
-    if (!validateStep3()) return;
+    if (!validateStep4()) return;
 
     setBusy(true);
     try {
       const sigla = org.sigla.trim().toUpperCase();
+      const sansList = tls.sans
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const hostname =
+        tls.hostname.trim() || `seederlinux.${sigla.toLowerCase()}.local`;
+
       const result = await setupApi.complete({
         setupToken: token.trim(),
         adminEmail: admin.email.trim().toLowerCase(),
@@ -161,6 +202,14 @@ function SetupPage() {
           NTP_SERVER: org.NTP_SERVER.trim(),
           HOMEPAGE: org.HOMEPAGE.trim(),
           DISPLAY_NAME: (org.DISPLAY_NAME || org.nome).trim(),
+        },
+        tls: {
+          mode: tls.mode,
+          hostname,
+          sans: sansList,
+          ...(tls.mode === "PKI"
+            ? { cert: tls.pkiCert, key: tls.pkiKey, ca: tls.pkiCa || undefined }
+            : {}),
         },
       });
 
@@ -505,8 +554,145 @@ function SetupPage() {
                   </Button>
                   <Button
                     className="flex-1"
+                    onClick={() => validateStep3() && nextStep()}
+                    data-testid="setup-org-next-btn"
+                  >
+                    Próximo: TLS <ChevronRight className="size-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* STEP 4: TLS (Documento 15 v3.1) */}
+          {step === 4 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ShieldAlert className="size-5 text-primary" /> Segurança de Transporte (TLS)
+                </CardTitle>
+                <CardDescription>
+                  TLS é <strong>obrigatório</strong> (Documento 15 v3.1). Escolha o modo de
+                  emissão dos certificados — o servidor reiniciará em HTTPS após a configuração.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {/* Mode selector */}
+                <div className="space-y-2">
+                  <Label>Modo</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <ModeOption
+                      active={tls.mode === "SELF_SIGNED"}
+                      onClick={() => setTls({ ...tls, mode: "SELF_SIGNED" })}
+                      testId="tls-mode-self-signed"
+                      title="Self-Signed"
+                      desc="Gera CA + cert automaticamente. Ideal para labs e redes isoladas."
+                    />
+                    <ModeOption
+                      active={tls.mode === "PKI"}
+                      onClick={() => setTls({ ...tls, mode: "PKI" })}
+                      testId="tls-mode-pki"
+                      title="PKI Corporativa"
+                      desc="Use certificados emitidos pela ICP da OM (cert + chave PEM)."
+                    />
+                    <ModeOption
+                      active={tls.mode === "ACME"}
+                      onClick={() => setTls({ ...tls, mode: "ACME" })}
+                      testId="tls-mode-acme"
+                      title="ACME (em breve)"
+                      desc="Let's Encrypt automático. Disponível em v3.1+."
+                      disabled
+                    />
+                  </div>
+                </div>
+
+                {/* Hostname + SAN (comum a todos os modos) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Hostname</Label>
+                    <Input
+                      data-testid="setup-tls-hostname"
+                      value={tls.hostname}
+                      onChange={(e) => setTls({ ...tls, hostname: e.target.value })}
+                      placeholder={`seederlinux.${(org.sigla || "om").toLowerCase()}.local`}
+                      className="font-mono text-sm"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Common Name do certificado. Padrão: seederlinux.&lt;sigla&gt;.local
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>SANs (separados por vírgula)</Label>
+                    <Input
+                      data-testid="setup-tls-sans"
+                      value={tls.sans}
+                      onChange={(e) => setTls({ ...tls, sans: e.target.value })}
+                      placeholder="localhost, 10.0.0.5, seederlinux.intraer"
+                      className="font-mono text-sm"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Hostnames e IPs alternativos (Subject Alternative Names).
+                    </p>
+                  </div>
+                </div>
+
+                {/* SELF_SIGNED info */}
+                {tls.mode === "SELF_SIGNED" && (
+                  <div className="rounded-md bg-info/10 border border-info/30 p-3 text-xs text-info-foreground">
+                    <p className="font-semibold mb-1">🔐 Self-Signed CA</p>
+                    <p className="text-muted-foreground">
+                      Será gerado: 1) CA root RSA-4096 (10 anos); 2) certificado de servidor
+                      RSA-2048 assinado pelo CA (~2 anos). O CA estará disponível em{" "}
+                      <code className="font-mono">/api/public/tls/ca.crt</code> para
+                      distribuição às estações.
+                    </p>
+                  </div>
+                )}
+
+                {/* PKI inputs */}
+                {tls.mode === "PKI" && (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label>Certificado do servidor (PEM)</Label>
+                      <textarea
+                        data-testid="setup-tls-pki-cert"
+                        value={tls.pkiCert}
+                        onChange={(e) => setTls({ ...tls, pkiCert: e.target.value })}
+                        placeholder="-----BEGIN CERTIFICATE-----&#10;MIID...&#10;-----END CERTIFICATE-----"
+                        className="w-full rounded-md border bg-background text-xs font-mono p-2 min-h-[120px]"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Chave privada (PEM)</Label>
+                      <textarea
+                        data-testid="setup-tls-pki-key"
+                        value={tls.pkiKey}
+                        onChange={(e) => setTls({ ...tls, pkiKey: e.target.value })}
+                        placeholder="-----BEGIN PRIVATE KEY-----&#10;MIIE...&#10;-----END PRIVATE KEY-----"
+                        className="w-full rounded-md border bg-background text-xs font-mono p-2 min-h-[120px]"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>CA (PEM, opcional)</Label>
+                      <textarea
+                        data-testid="setup-tls-pki-ca"
+                        value={tls.pkiCa}
+                        onChange={(e) => setTls({ ...tls, pkiCa: e.target.value })}
+                        placeholder="Cadeia intermediária + raiz (opcional)"
+                        className="w-full rounded-md border bg-background text-xs font-mono p-2 min-h-[80px]"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <Button variant="outline" onClick={prevStep} data-testid="setup-back-btn-4">
+                    <ArrowLeft className="size-4 mr-1" /> Voltar
+                  </Button>
+                  <Button
+                    className="flex-1"
                     onClick={submitSetup}
-                    disabled={busy}
+                    disabled={busy || tls.mode === "ACME"}
                     data-testid="setup-finalize-btn"
                   >
                     {busy ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
@@ -517,7 +703,7 @@ function SetupPage() {
             </Card>
           )}
 
-          {/* STEP 4: Complete */}
+          {/* STEP 5: Complete */}
           {step === STEPS.length && (
             <Card>
               <CardContent className="pt-8 pb-6 text-center space-y-5">
@@ -537,6 +723,18 @@ function SetupPage() {
                   <p>✓ Organização configurada: {org.sigla}</p>
                   <p>✓ Variáveis padrão atribuídas</p>
                   <p>✓ Branding padrão configurado</p>
+                  <p>✓ TLS configurado (modo {tls.mode})</p>
+                </div>
+                <div className="rounded-md border-warning/40 bg-warning/5 border p-3 text-xs text-left">
+                  <p className="font-semibold text-warning flex items-center gap-1.5">
+                    <ShieldAlert className="size-3.5" /> Reinício necessário
+                  </p>
+                  <p className="text-muted-foreground mt-1">
+                    Para ativar o HTTPS, reinicie o backend:{" "}
+                    <code className="font-mono">docker compose restart api</code>. Após reiniciar,
+                    a UI estará disponível em{" "}
+                    <code className="font-mono">https://{tls.hostname || "<hostname>"}</code>.
+                  </p>
                 </div>
                 <Button
                   className="w-full"
@@ -552,5 +750,38 @@ function SetupPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function ModeOption({
+  active,
+  onClick,
+  testId,
+  title,
+  desc,
+  disabled,
+}: {
+  active: boolean;
+  onClick: () => void;
+  testId: string;
+  title: string;
+  desc: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      data-testid={testId}
+      className={`text-left rounded-md border-2 p-3 transition-all ${
+        active
+          ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+          : "border-border hover:border-primary/40"
+      } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+    >
+      <div className="text-sm font-semibold">{title}</div>
+      <p className="text-xs text-muted-foreground mt-1">{desc}</p>
+    </button>
   );
 }

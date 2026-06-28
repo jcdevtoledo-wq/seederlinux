@@ -426,6 +426,30 @@ model SystemConfig {
 }
 
 // =============================================================================
+// TLS CONFIG (Documento 15 v3.1 — TLS obrigatório)
+// =============================================================================
+
+model TlsConfig {
+  id           String    @id @default(cuid())
+  mode         String    // SELF_SIGNED | PKI | ACME
+  hostname     String    @default("seederlinux.local")
+  sans         String[]  @default([])
+  serverCert   String?   @db.Text @map("server_cert")
+  serverKey    String?   @db.Text @map("server_key")
+  caCert       String?   @db.Text @map("ca_cert")
+  caKey        String?   @db.Text @map("ca_key")
+  fingerprint  String?   @map("fingerprint")
+  serial       String?   @map("serial")
+  generatedAt  DateTime? @map("generated_at")
+  expiresAt    DateTime? @map("expires_at")
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("tls_config")
+}
+
+// =============================================================================
 // AUDIT
 // =============================================================================
 

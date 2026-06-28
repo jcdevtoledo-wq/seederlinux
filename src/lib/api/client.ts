@@ -95,11 +95,53 @@ export const setupApi = {
     orgDescricao?: string;
     /** Variáveis iniciais para a OM (chaves do catálogo Doc 06). */
     variables?: Record<string, string>;
+    /** Configuração TLS (Documento 15 v3.1 — obrigatório). */
+    tls?: {
+      mode: 'SELF_SIGNED' | 'PKI' | 'ACME';
+      hostname?: string;
+      sans?: string[];
+      cert?: string; // PKI mode
+      key?: string;  // PKI mode
+      ca?: string;   // PKI mode (opcional)
+    };
   }) =>
-    api<{ success: boolean; token: string; user: any; organization: any }>(
-      '/api/setup',
-      { method: 'POST', body: data, auth: false }
-    ),
+    api<{
+      success: boolean;
+      token: string;
+      user: any;
+      organization: any;
+      tls?: { mode: string; hostname: string; fingerprint: string; expiresAt: string };
+      restartRequired?: boolean;
+    }>('/api/setup', { method: 'POST', body: data, auth: false }),
+};
+
+// TLS Admin API (Documento 15 v3.1)
+export const tlsApi = {
+  status: () =>
+    api<{
+      success: boolean;
+      data: {
+        active: boolean;
+        mode: string | null;
+        hostname?: string;
+        sans?: string[];
+        fingerprint?: string;
+        serial?: string;
+        expiresAt?: string;
+        hasCa?: boolean;
+      };
+    }>('/api/admin/tls'),
+
+  rotate: (data: {
+    mode: 'SELF_SIGNED' | 'PKI' | 'ACME';
+    hostname?: string;
+    sans?: string[];
+    cert?: string;
+    key?: string;
+    ca?: string;
+  }) => api<any>('/api/admin/tls/rotate', { method: 'POST', body: data }),
+
+  downloadCaUrl: () => `${API_URL}/api/public/tls/ca.crt`,
 };
 
 // Users API

@@ -13,6 +13,13 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { VARIABLE_CATALOG } from './seed/variable-catalog';
+import {
+  bootstrapTls,
+  configureTlsFromSetup,
+  getActiveTls,
+  exportToDisk,
+  type TlsMode,
+} from './lib/cert-manager';
 
 const prisma = new PrismaClient();
 
@@ -130,11 +137,20 @@ function validateValue(value: string, type: string): boolean {
 // Server
 // =============================================================================
 
-async function buildServer() {
+async function buildServer(httpsOptions?: { cert: string; key: string }) {
   const app = Fastify({
     logger: {
       level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
     },
+    ...(httpsOptions
+      ? {
+          https: {
+            cert: httpsOptions.cert,
+            key: httpsOptions.key,
+            minVersion: 'TLSv1.2' as const,
+          },
+        }
+      : {}),
   });
 
   // Serializa BigInt automaticamente
@@ -227,6 +243,8 @@ async function buildServer() {
       orgDescricao,
       // Variáveis iniciais da OM (opcionais — populadas no Setup Wizard)
       variables: customVariables,
+      // TLS (Documento 15 v3.1 — obrigatório)
+      tls: tlsPayload,
     } = request.body as any;
 
     const expectedToken = (process.env.SETUP_TOKEN || '').trim();
@@ -304,7 +322,41 @@ async function buildServer() {
         include: { roles: true },
       });
 
-      // 6. Marca setup como completo
+      // 6. Configura TLS (Documento 15 v3.1 — obrigatório)
+      // Default: SELF_SIGNED se o cliente não informar
+      const tlsMode: TlsMode = (tlsPayload?.mode || 'SELF_SIGNED') as TlsMode;
+      let tlsResult: any = null;
+      try {
+        const bundle = await configureTlsFromSetup(prisma, {
+          mode: tlsMode,
+          hostname: tlsPayload?.hostname || `seederlinux.${sigla.toLowerCase()}.local`,
+          sans: tlsPayload?.sans || ['localhost', '127.0.0.1', '::1'],
+          cert: tlsPayload?.cert,
+          key: tlsPayload?.key,
+          ca: tlsPayload?.ca,
+        });
+        // Exporta para o disco se TLS_DIR estiver definido (best-effort)
+        if (process.env.TLS_DIR) {
+          try {
+            await exportToDisk(prisma, process.env.TLS_DIR);
+          } catch (err) {
+            app.log.warn({ err }, '[tls] Failed to export to disk (non-fatal)');
+          }
+        }
+        tlsResult = {
+          mode: tlsMode,
+          hostname: bundle.hostname,
+          fingerprint: bundle.fingerprint,
+          expiresAt: bundle.expiresAt,
+        };
+      } catch (err: any) {
+        app.log.error({ err }, '[setup] TLS configuration failed');
+        return reply
+          .code(500)
+          .send({ success: false, message: `TLS setup failed: ${err.message}` });
+      }
+
+      // 7. Marca setup como completo
       await prisma.systemConfig.upsert({
         where: { key: 'setup_completed' },
         update: { value: 'true' },
@@ -321,7 +373,7 @@ async function buildServer() {
         create: { key: 'system_version', value: '3.0.0' },
       });
 
-      // 7. Audit
+      // 8. Audit
       await prisma.auditEvent.create({
         data: {
           atorId: admin.id,
@@ -330,7 +382,7 @@ async function buildServer() {
           categoria: 'setup',
           acao: 'complete',
           alvo: sigla,
-          detalhes: `Setup wizard completed for ${orgName}`,
+          detalhes: `Setup wizard completed for ${orgName} (tls=${tlsMode})`,
         },
       });
 
@@ -350,6 +402,8 @@ async function buildServer() {
           roles: admin.roles,
         },
         organization: org,
+        tls: tlsResult,
+        restartRequired: true, // servidor precisa reiniciar para ativar HTTPS
       });
     } catch (err: any) {
       app.log.error({ err }, '[setup] Failed');
@@ -1561,6 +1615,83 @@ async function buildServer() {
   });
 
   // ==========================================================================
+  // TLS ADMIN ENDPOINTS (Documento 15 v3.1)
+  // ==========================================================================
+
+  /** Status do TLS atual (admin_gap apenas). */
+  app.get('/api/admin/tls', async (request: any, reply) => {
+    if (!isAdminGap(request.user.roles)) return reply.code(403).send({ error: 'Forbidden' });
+    const active = await getActiveTls(prisma);
+    if (!active) {
+      return { success: true, data: { active: false, mode: null } };
+    }
+    return {
+      success: true,
+      data: {
+        active: true,
+        mode: active.mode,
+        hostname: active.hostname,
+        sans: active.sans,
+        fingerprint: active.fingerprint,
+        serial: active.serial,
+        expiresAt: active.expiresAt,
+        hasCa: !!active.ca,
+      },
+    };
+  });
+
+  /** Baixa o CA público (PEM) para distribuir às estações.
+   *  Endpoint público — apenas o CA, não a chave privada do CA. */
+  app.get('/api/public/tls/ca.crt', async (_request, reply) => {
+    const active = await getActiveTls(prisma);
+    if (!active?.ca) {
+      return reply.code(404).send({ error: 'No CA configured (PKI mode or no TLS)' });
+    }
+    reply.header('Content-Type', 'application/x-x509-ca-cert');
+    reply.header('Content-Disposition', 'attachment; filename="seederlinux-ca.crt"');
+    return active.ca;
+  });
+
+  /** Rotaciona o certificado (gera novo bundle e desativa o anterior). */
+  app.post('/api/admin/tls/rotate', async (request: any, reply) => {
+    if (!isAdminGap(request.user.roles)) return reply.code(403).send({ error: 'Forbidden' });
+    const { mode, hostname, sans, cert, key, ca } = (request.body as any) || {};
+
+    try {
+      const newBundle = await configureTlsFromSetup(prisma, {
+        mode: (mode || 'SELF_SIGNED') as TlsMode,
+        hostname,
+        sans,
+        cert,
+        key,
+        ca,
+      });
+      await prisma.auditEvent.create({
+        data: {
+          atorId: request.user.userId,
+          atorEmail: request.user.email,
+          categoria: 'tls',
+          acao: 'rotate',
+          alvo: newBundle.hostname,
+          detalhes: `mode=${mode}, fingerprint=${newBundle.fingerprint}`,
+        },
+      });
+      return {
+        success: true,
+        data: {
+          mode,
+          hostname: newBundle.hostname,
+          fingerprint: newBundle.fingerprint,
+          expiresAt: newBundle.expiresAt,
+          restartRequired: true,
+        },
+      };
+    } catch (err: any) {
+      return reply.code(400).send({ success: false, message: err.message });
+    }
+  });
+
+  // ==========================================================================
   // Graceful shutdown
   // ==========================================================================
   process.on('SIGINT', async () => {
@@ -1578,11 +1709,33 @@ async function buildServer() {
 }
 
 async function start() {
-  const app = await buildServer();
   const port = parseInt(process.env.PORT || '8000', 10);
+  const tlsDisabled = process.env.TLS_DISABLED === 'true';
+
+  // Bootstrap TLS: tenta carregar bundle ativo do banco
+  let httpsOptions: { cert: string; key: string } | undefined;
+  if (!tlsDisabled) {
+    try {
+      const bundle = await bootstrapTls(prisma);
+      if (bundle) {
+        httpsOptions = { cert: bundle.cert, key: bundle.key };
+        console.log(`🔒 TLS active (mode=${bundle.mode}) — HTTPS enabled`);
+      } else {
+        console.log('⚠️  No active TLS configuration found — running HTTP (setup mode)');
+        console.log('    Run Setup Wizard to provision certificates.');
+      }
+    } catch (err) {
+      console.warn('[tls] Bootstrap failed (DB unreachable?):', (err as Error).message);
+    }
+  } else {
+    console.log('⚠️  TLS_DISABLED=true — running HTTP (dev/test only, NOT for production)');
+  }
+
+  const app = await buildServer(httpsOptions);
   try {
     await app.listen({ port, host: '0.0.0.0' });
-    console.log(`🚀 SeederLinux API v3.0 running on http://0.0.0.0:${port}`);
+    const proto = httpsOptions ? 'https' : 'http';
+    console.log(`🚀 SeederLinux API v3.0 running on ${proto}://0.0.0.0:${port}`);
   } catch (err) {
     app.log.error(err);
     process.exit(1);

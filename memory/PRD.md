@@ -32,6 +32,12 @@ Refatoração completa do código para alinhar 100% com a documentação v3.0:
 - ✅ Migration SQL destrutiva (`prisma/migrations/20260101000000_refactor_v3_metadata_only_org`).
 - ✅ Catálogo oficial (60+ variáveis em 13 categorias — Doc 06).
 - ✅ Script de seed do catálogo (`backend/src/scripts/seed-catalog.ts`).
+- ✅ **TLS obrigatório (Doc 15 v3.1)**:
+  - Tabela `tls_config` + migration (`20260102000000_add_tls_config`).
+  - `backend/src/lib/cert-manager.ts` com modos SELF_SIGNED (CA 4096 + cert servidor 2048) e PKI.
+  - Setup Wizard ganhou step 4 (TLS) com escolha de modo + hostname + SANs.
+  - Endpoint `GET /api/admin/tls`, `POST /api/admin/tls/rotate`, `GET /api/public/tls/ca.crt`.
+  - `start()` faz bootstrap automático: HTTPS se houver TLS ativo, HTTP senão (modo setup).
 - ✅ Backend `server.ts` totalmente refatorado:
   - Setup cria todas as variáveis do catálogo.
   - GET/PATCH /api/organizations/:id agora usa `config` (mapa chave→valor).
