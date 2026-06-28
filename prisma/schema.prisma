@@ -281,8 +281,56 @@ model SeederProfile {
 
   organization      Organization? @relation(fields: [organizacaoOrigem], references: [sigla])
   scripts           Script[]
+  modules           ProfileModule[]
 
   @@map("profiles_seeder")
+}
+
+// =============================================================================
+// CORE MODULES (Documento 03 §7, Documento 07 — catálogo institucional imutável)
+// =============================================================================
+
+model CoreModule {
+  id              String   @id @default(cuid())
+  code            String   @unique @db.VarChar(60)        // core.domain, core.repositories, etc.
+  name            String   @db.VarChar(120)
+  description     String   @db.Text
+  category        String   @db.VarChar(40)                // DOMAIN, NETWORK, IDENTITY, BRANDING, etc.
+  version         String   @default("1.0.0")
+  serial          Int      @default(0)
+  executionOrder  Int      @map("execution_order")        // 1..12 (Documento 11 §6)
+  immutable       Boolean  @default(true)                 // Sempre true para módulos Core
+  enabled         Boolean  @default(true)
+  manifest        Json     @default("{}")                 // Manifesto completo (Doc 07 §3)
+  requiredVars    String[] @default([]) @map("required_vars")
+  optionalVars    String[] @default([]) @map("optional_vars")
+  dependencies    String[] @default([])
+  rollbackScript  String?  @db.Text @map("rollback_script")
+  validationScript String? @db.Text @map("validation_script")
+  scriptContent   String?  @db.Text @map("script_content")
+  supportedDistros String[] @default(["ubuntu", "debian", "linuxmint"]) @map("supported_distros")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  profiles        ProfileModule[]
+
+  @@index([executionOrder])
+  @@index([category])
+  @@map("core_modules")
+}
+
+model ProfileModule {
+  id            String   @id @default(cuid())
+  profileId     String   @map("profile_id")
+  coreModuleId  String   @map("core_module_id")
+  enabled       Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  profile       SeederProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  coreModule    CoreModule    @relation(fields: [coreModuleId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, coreModuleId])
+  @@map("profile_modules")
 }
 
 // =============================================================================

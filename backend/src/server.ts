@@ -13,6 +13,7 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { VARIABLE_CATALOG } from './seed/variable-catalog';
+import { CORE_MODULES } from './seed/core-modules';
 import {
   bootstrapTls,
   configureTlsFromSetup,
@@ -81,6 +82,49 @@ async function ensureCatalogSeeded(): Promise<void> {
         exemplo: def.exemplo ?? null,
         validation: def.validation ?? null,
         coreModule: def.coreModule ?? null,
+      },
+    });
+  }
+}
+
+/** Garante que o catálogo de módulos Core está populado (Documento 07 + 11 §6). */
+async function ensureCoreModulesSeeded(): Promise<void> {
+  for (const m of CORE_MODULES) {
+    await prisma.coreModule.upsert({
+      where: { code: m.code },
+      update: {
+        name: m.name,
+        description: m.description,
+        category: m.category,
+        version: m.version,
+        executionOrder: m.executionOrder,
+        requiredVars: m.requiredVars,
+        optionalVars: m.optionalVars,
+        dependencies: m.dependencies,
+        manifest: m.manifest as any,
+        scriptContent: m.scriptContent,
+        rollbackScript: m.rollbackScript,
+        validationScript: m.validationScript,
+        supportedDistros: m.supportedDistros,
+      },
+      create: {
+        code: m.code,
+        name: m.name,
+        description: m.description,
+        category: m.category,
+        version: m.version,
+        serial: 0,
+        executionOrder: m.executionOrder,
+        immutable: true,
+        enabled: true,
+        manifest: m.manifest as any,
+        requiredVars: m.requiredVars,
+        optionalVars: m.optionalVars,
+        dependencies: m.dependencies,
+        scriptContent: m.scriptContent,
+        rollbackScript: m.rollbackScript,
+        validationScript: m.validationScript,
+        supportedDistros: m.supportedDistros,
       },
     });
   }
@@ -204,12 +248,18 @@ async function buildServer(httpsOptions?: { cert: string; key: string }) {
     }
   });
 
-  // Garante catálogo populado ao subir
+  // Garante catálogo e módulos Core populados ao subir
   try {
     await ensureCatalogSeeded();
     app.log.info(`[catalog] ${VARIABLE_CATALOG.length} variable definitions ensured.`);
   } catch (err) {
     app.log.warn({ err }, '[catalog] Failed to seed catalog (DB might be unreachable).');
+  }
+  try {
+    await ensureCoreModulesSeeded();
+    app.log.info(`[core-modules] ${CORE_MODULES.length} core modules ensured.`);
+  } catch (err) {
+    app.log.warn({ err }, '[core-modules] Failed to seed core modules.');
   }
 
   // ==========================================================================
@@ -1557,6 +1607,7 @@ async function buildServer(httpsOptions?: { cert: string; key: string }) {
     if (!canAccessOrg(request.user.roles, org.sigla))
       return reply.code(403).send({ error: 'Forbidden' });
 
+    // 1. Carregar scripts customizados (categoria == 'custom' por default)
     let scripts = await prisma.script.findMany({ where: { status: 'pronto' } });
     if (profileId) {
       const profile = await prisma.seederProfile.findUnique({ where: { id: profileId } });
@@ -1567,6 +1618,19 @@ async function buildServer(httpsOptions?: { cert: string; key: string }) {
       scripts = scripts.filter((s: any) => scriptIds.includes(s.id));
     }
 
+    // 2. Carregar módulos Core (Doc 11 §6 — ordem obrigatória 1..12)
+    let coreModules: any[] = [];
+    if (profileId) {
+      const pms = await prisma.profileModule.findMany({
+        where: { profileId, enabled: true },
+        include: { coreModule: true },
+      });
+      coreModules = pms.map((pm) => pm.coreModule).filter((m) => m.enabled);
+    } else {
+      coreModules = await prisma.coreModule.findMany({ where: { enabled: true } });
+    }
+    coreModules.sort((a, b) => a.executionOrder - b.executionOrder);
+
     const updated = await prisma.organization.update({
       where: { id: orgId },
       data: { serial: { increment: 1 } },
@@ -1575,17 +1639,44 @@ async function buildServer(httpsOptions?: { cert: string; key: string }) {
     const varMap: Record<string, string> = {};
     for (const v of org.variables) varMap[v.definition.key] = v.value || '';
 
-    const processedScripts = scripts.map((s) => ({
-      ...s,
-      conteudo: s.conteudo.replace(/\{\{\s*([A-Z][A-Z0-9_]+)\s*\}\}/g, (_, key) =>
+    const substituteVars = (content: string) =>
+      content.replace(/\{\{\s*([A-Z][A-Z0-9_]+)\s*\}\}/g, (_, key) =>
         varMap[key] !== undefined ? varMap[key] : `{{${key}}}`
-      ),
-    }));
+      );
+
+    // 3. Montar lista de execução: Core modules (ordem 1..12) → scripts custom
+    const executionPlan = [
+      ...coreModules.map((m) => ({
+        type: 'core' as const,
+        id: m.id,
+        code: m.code,
+        name: m.name,
+        executionOrder: m.executionOrder,
+        category: m.category,
+        conteudo: substituteVars(m.scriptContent || ''),
+        rollback: m.rollbackScript ? substituteVars(m.rollbackScript) : null,
+        validation: m.validationScript ? substituteVars(m.validationScript) : null,
+        requiredVars: m.requiredVars,
+      })),
+      ...scripts.map((s, idx) => ({
+        type: 'custom' as const,
+        id: s.id,
+        code: s.nome,
+        name: s.nome,
+        executionOrder: 100 + idx, // após os Core
+        category: s.categoria,
+        conteudo: substituteVars(s.conteudo),
+        rollback: null,
+        validation: null,
+        requiredVars: s.variaveisUsadas ?? [],
+      })),
+    ];
 
     const confLines = [
       `# SeederLinux Configuration for ${org.sigla}`,
       `# Generated: ${new Date().toISOString()}`,
       `# Serial: ${updated.serial}`,
+      `# Core modules: ${coreModules.length} | Custom scripts: ${scripts.length}`,
       '',
       `export ORG="${org.sigla.toLowerCase()}"`,
       `export SERIAL="${updated.serial}"`,
@@ -1603,14 +1694,112 @@ async function buildServer(httpsOptions?: { cert: string; key: string }) {
         categoria: 'provisioning',
         acao: 'generate',
         alvo: org.sigla,
-        detalhes: `serial=${updated.serial}, scripts=${scripts.length}`,
+        detalhes: `serial=${updated.serial}, core=${coreModules.length}, custom=${scripts.length}`,
       },
     });
 
     return {
+      success: true,
       serial: updated.serial.toString(),
-      scripts: processedScripts,
+      executionPlan,
+      coreModules: coreModules.length,
+      customScripts: scripts.length,
+      // Mantido para compatibilidade com bundle.ts (frontend)
+      scripts: executionPlan,
       config: confLines.join('\n'),
+    };
+  });
+
+  // ==========================================================================
+  // CORE MODULES (Documento 03 §7, Documento 07 — catálogo institucional)
+  // ==========================================================================
+
+  /** Lista todos os módulos Core, ordenados pela ordem de execução (Doc 11 §6). */
+  app.get('/api/core-modules', async () => {
+    const modules = await prisma.coreModule.findMany({
+      orderBy: { executionOrder: 'asc' },
+    });
+    return { success: true, data: modules };
+  });
+
+  /** Detalhe de um módulo Core (inclui manifesto + scripts). */
+  app.get('/api/core-modules/:code', async (request: any, reply) => {
+    const { code } = request.params as { code: string };
+    const m = await prisma.coreModule.findUnique({ where: { code } });
+    if (!m) return reply.code(404).send({ success: false, message: 'Not found' });
+    return { success: true, data: m };
+  });
+
+  /**
+   * Habilita/desabilita um módulo (apenas a flag `enabled`).
+   * Módulos Core são imutáveis (Doc 05 §7) — não permite editar conteúdo.
+   */
+  app.patch('/api/core-modules/:code', async (request: any, reply) => {
+    if (!isAdminGap(request.user.roles)) return reply.code(403).send({ error: 'Forbidden' });
+    const { code } = request.params as { code: string };
+    const { enabled } = (request.body as any) || {};
+    const m = await prisma.coreModule.findUnique({ where: { code } });
+    if (!m) return reply.code(404).send({ success: false, message: 'Not found' });
+    if (typeof enabled !== 'boolean') {
+      return reply
+        .code(400)
+        .send({ success: false, message: 'Only "enabled" can be toggled (Core is immutable)' });
+    }
+    const updated = await prisma.coreModule.update({
+      where: { code },
+      data: { enabled },
+    });
+    await prisma.auditEvent.create({
+      data: {
+        atorId: request.user.userId,
+        atorEmail: request.user.email,
+        categoria: 'core-modules',
+        acao: enabled ? 'enable' : 'disable',
+        alvo: code,
+      },
+    });
+    return { success: true, data: updated };
+  });
+
+  /** Associa/dissocia módulos Core a um perfil (N:N). */
+  app.put('/api/profiles/:id/modules', async (request: any, reply) => {
+    if (!isAdminGap(request.user.roles) && !hasRole(request.user.roles, 'operador_om'))
+      return reply.code(403).send({ error: 'Forbidden' });
+    const { id } = request.params as { id: string };
+    const { moduleCodes } = (request.body as any) || {};
+    if (!Array.isArray(moduleCodes)) {
+      return reply.code(400).send({ success: false, message: 'moduleCodes must be an array' });
+    }
+    const profile = await prisma.seederProfile.findUnique({ where: { id } });
+    if (!profile) return reply.code(404).send({ success: false, message: 'Profile not found' });
+
+    const modules = await prisma.coreModule.findMany({ where: { code: { in: moduleCodes } } });
+    await prisma.$transaction(async (tx) => {
+      await tx.profileModule.deleteMany({ where: { profileId: id } });
+      for (const m of modules) {
+        await tx.profileModule.create({
+          data: { profileId: id, coreModuleId: m.id, enabled: true },
+        });
+      }
+    });
+    return { success: true, data: { profileId: id, modules: modules.length } };
+  });
+
+  /** Lista os módulos associados a um perfil, em ordem de execução. */
+  app.get('/api/profiles/:id/modules', async (request: any, reply) => {
+    const { id } = request.params as { id: string };
+    const pms = await prisma.profileModule.findMany({
+      where: { profileId: id },
+      include: { coreModule: true },
+    });
+    pms.sort((a, b) => a.coreModule.executionOrder - b.coreModule.executionOrder);
+    return {
+      success: true,
+      data: pms.map((pm) => ({
+        id: pm.id,
+        enabled: pm.enabled,
+        ...pm.coreModule,
+      })),
     };
   });
 

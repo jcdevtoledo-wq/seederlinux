@@ -51,17 +51,26 @@ detect_ip() {
 SERVER_IP=$(detect_ip)
 info "IP detectado: $SERVER_IP"
 
-# Define URLs baseado no IP ou domínio
+# Define URLs e modo TLS baseado no IP ou domínio (Documento 15 v3.1)
 if [[ -n "$DOMAIN" ]]; then
     PUBLIC_API_URL="https://${DOMAIN}/api"
     PUBLIC_APP_URL="https://${DOMAIN}"
+    # Com domínio público, usuário pode usar PKI (Let's Encrypt manual)
+    # Default ainda é SELF_SIGNED — basta substituir o cert no Setup Wizard
+    TLS_MODE="SELF_SIGNED"
+    TLS_HOSTNAME="${DOMAIN}"
+    TLS_SANS="localhost,127.0.0.1,${SERVER_IP},${DOMAIN}"
 else
-    PUBLIC_API_URL="http://${SERVER_IP}:8000"
-    PUBLIC_APP_URL="http://${SERVER_IP}:3000"
+    PUBLIC_API_URL="https://${SERVER_IP}:8000"
+    PUBLIC_APP_URL="https://${SERVER_IP}:3000"
+    TLS_MODE="SELF_SIGNED"
+    TLS_HOSTNAME="seederlinux.local"
+    TLS_SANS="localhost,127.0.0.1,${SERVER_IP},seederlinux.local"
 fi
 
 info "URL API: $PUBLIC_API_URL"
 info "URL App: $PUBLIC_APP_URL"
+info "TLS Mode: $TLS_MODE  Hostname: $TLS_HOSTNAME"
 
 # ---------- SISTEMA ----------
 if [[ -r /etc/os-release ]]; then
@@ -136,6 +145,16 @@ SETUP_TOKEN=${SETUP_TOKEN}
 # Server Ports
 PORT=8000
 NODE_ENV=production
+
+# TLS (Documento 15 v3.1 — obrigatório)
+# Modos: SELF_SIGNED (default), PKI, ACME (em breve)
+# - SELF_SIGNED: gera CA + cert do servidor automaticamente no Setup Wizard
+# - PKI: cole cert+key do seu CA corporativo no Setup Wizard
+# Para desligar TLS em dev (NÃO USAR em produção): TLS_DISABLED=true
+TLS_MODE=${TLS_MODE}
+TLS_HOSTNAME=${TLS_HOSTNAME}
+TLS_SANS=${TLS_SANS}
+TLS_DIR=/opt/seederlinux/tls
 
 # Public URLs (for frontend)
 VITE_API_URL=${PUBLIC_API_URL}
@@ -213,6 +232,11 @@ echo "  🔧 Setup:     ${PUBLIC_APP_URL}/setup"
 echo "  🔌 API:       ${PUBLIC_API_URL}/health"
 echo ""
 echo "  🔐 Setup Token: ${SETUP_TOKEN}"
+echo ""
+echo "  🔒 TLS Mode: ${TLS_MODE}  (hostname: ${TLS_HOSTNAME})"
+echo "     Após o Setup Wizard, reinicie a API para ativar HTTPS:"
+echo "     docker compose restart api"
+echo "     O CA público ficará em: ${PUBLIC_API_URL}/public/tls/ca.crt"
 echo ""
 echo "  📋 Logs:   docker compose logs -f"
 echo "  📋 Status: docker compose ps"
