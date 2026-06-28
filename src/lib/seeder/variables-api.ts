@@ -1,66 +1,77 @@
-// Cloud-backed CRUD para o catalogo global de variaveis e variaveis por organizacao.
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { variablesApi } from "@/lib/api/client";
-import type { VariableDef, VarType, VarScope } from "./types";
+// SeederLinux v3.0 — Variáveis (catálogo + variáveis por OM)
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { variablesApi, organizationConfigApi } from "@/lib/api/client";
+import type { VariableDefinition, VarType } from "./types";
 
-function apiToVar(r: any): VariableDef {
+function apiToDef(r: any): VariableDefinition {
   return {
+    id: r.id,
     key: r.key,
     label: r.label,
-    descricao: r.descricao,
-    tipo: r.tipo as VarType,
-    escopo: r.escopo as VarScope,
-    oficial: r.oficial,
-    obrigatoria: r.obrigatoria,
-    exemplo: r.exemplo ?? undefined,
-    default: r.defaultValue ?? r.default_value ?? undefined,
+    category: r.category,
+    description: r.description,
+    type: r.type as VarType,
+    required: !!r.required,
+    editable: r.editable ?? true,
+    oficial: !!r.oficial,
+    defaultValue: r.defaultValue ?? null,
+    exemplo: r.exemplo ?? null,
+    validation: r.validation ?? null,
+    coreModule: r.coreModule ?? null,
+    value: r.value ?? r.defaultValue ?? "",
   };
 }
 
-export const VARS_QK = ["variable_catalog"] as const;
+export const CATALOG_QK = ["variable_catalog"] as const;
 export const ORG_VARS_QK = ["org_variables"] as const;
 
-// Catalogo global de variaveis
+/** Catálogo global de definições (sem valor por OM). */
 export function useVariableCatalog() {
   return useQuery({
-    queryKey: VARS_QK,
-    queryFn: async (): Promise<VariableDef[]> => {
+    queryKey: CATALOG_QK,
+    queryFn: async (): Promise<VariableDefinition[]> => {
       const data = await variablesApi.catalog();
-      return data.map((r: any) => apiToVar(r));
+      return data.map(apiToDef);
     },
   });
 }
 
-// Variaveis de uma organizacao especifica
+/**
+ * Variáveis de uma OM — retorna o catálogo COMPLETO com o valor atual.
+ * Esta é a fonte que as telas devem usar (refatoração v3.0).
+ */
 export function useVariables(orgId: string) {
   return useQuery({
     queryKey: [...ORG_VARS_QK, orgId],
-    queryFn: async () => {
+    queryFn: async (): Promise<VariableDefinition[]> => {
       if (!orgId) return [];
-      const data = await variablesApi.list(orgId);
-      return data.variables ?? [];
+      const data = await variablesApi.listForOrg(orgId);
+      return data.map(apiToDef);
     },
     enabled: !!orgId,
   });
 }
 
+/** Lança ações de criação de variável customizada no catálogo. */
 export function useAddVariable() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (v: VariableDef) => {
+    mutationFn: async (v: VariableDefinition) => {
       await variablesApi.addToCatalog({
         key: v.key,
         label: v.label,
-        descricao: v.descricao,
-        tipo: v.tipo,
-        escopo: v.escopo,
-        oficial: false,
-        obrigatoria: v.obrigatoria,
+        category: v.category,
+        description: v.description,
+        type: v.type,
+        required: v.required,
+        editable: v.editable,
+        defaultValue: v.defaultValue ?? null,
         exemplo: v.exemplo ?? null,
-        defaultValue: v.default ?? null,
+        validation: v.validation ?? null,
+        coreModule: v.coreModule ?? null,
       });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: VARS_QK }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: CATALOG_QK }),
   });
 }
 
@@ -68,9 +79,39 @@ export function useDeleteVariable() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (key: string) => {
-      const { api } = await import("@/lib/api/client");
-      await api(`/api/variables/catalog/${key}`, { method: 'DELETE' });
+      await variablesApi.deleteFromCatalog(key);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: VARS_QK }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: CATALOG_QK }),
+  });
+}
+
+/** Atualiza múltiplas variáveis da OM em uma chamada (incrementa o serial). */
+export function useBulkUpdateVariables() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (p: { orgId: string; variables: Record<string, string> }) => {
+      return variablesApi.bulkUpdate(p.orgId, p.variables);
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: [...ORG_VARS_QK, vars.orgId] });
+      qc.invalidateQueries({ queryKey: ["organizations", vars.orgId] });
+      qc.invalidateQueries({ queryKey: ["organizations"] });
+    },
+  });
+}
+
+/** Validação da OM contra catálogo de variáveis obrigatórias. */
+export function useOrgValidation(orgId: string) {
+  return useQuery({
+    queryKey: ["org_validation", orgId],
+    queryFn: async () => organizationConfigApi.validate(orgId),
+    enabled: !!orgId,
+  });
+}
+
+/** Solicita ao backend a geração do arquivo .conf da OM. */
+export function useExportOrgConf() {
+  return useMutation({
+    mutationFn: async (orgId: string) => organizationConfigApi.exportConf(orgId),
   });
 }

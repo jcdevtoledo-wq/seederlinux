@@ -98,7 +98,7 @@ function DashboardPage() {
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold truncate">{o.sigla}</div>
                     <div className="text-xs text-muted-foreground truncate font-mono">
-                      {o.fqdn || o.dominio} · {o.estacoes} estações
+                      {o.config?.DOMINIO ?? "-"} · {o.estacoes} estações
                     </div>
                   </div>
                 </div>

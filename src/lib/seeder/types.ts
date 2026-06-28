@@ -1,8 +1,26 @@
-// SeederLinux — tipos centrais do domínio
-export type ADMethod = "sssd" | "winbind" | "auto";
+// SeederLinux v3.0 — tipos centrais do domínio
+// Alinhado com Documentação v3.0 — Organization é APENAS metadados;
+// todas as configurações técnicas são variáveis catalogadas.
+
 export type Distro = "ubuntu" | "linuxmint" | "debian" | "rocky" | "almalinux" | "zorin";
 export type DesktopEnv = "GNOME" | "MATE" | "Cinnamon" | "XFCE" | "KDE" | "LXDE";
+
 export type ScriptCategory =
+  | "core"
+  | "sistema"
+  | "rede"
+  | "seguranca"
+  | "usuario"
+  | "desktop"
+  | "automacao"
+  | "custom"
+  | "dns"
+  | "ntp"
+  | "proxy"
+  | "ad"
+  | "browser"
+  | "printer"
+  | "branding"
   | "ingresso"
   | "personalizacao"
   | "logon"
@@ -13,79 +31,67 @@ export type ScriptCategory =
   | "legados"
   | "inventario";
 
-export type ScriptStatus = "rascunho" | "validado" | "publicado";
+export type ScriptStatus = "rascunho" | "pronto" | "depreciado" | "validado" | "publicado";
 
-export type VarType = "string" | "ip" | "url" | "porta" | "bool" | "path";
-export type VarScope = "rede" | "diretorio" | "servicos" | "identidade" | "personalizacao" | "custom";
+export type VarType = "string" | "boolean" | "integer" | "ip" | "url" | "array";
 
-/** Catálogo de variáveis suportadas pelo ecossistema. */
-export interface VariableDef {
-  /** Identificador bash (UPPER_SNAKE_CASE), ex.: DOMINIO, DC_IP. */
+/** Definição catalogada de uma variável (catálogo oficial). */
+export interface VariableDefinition {
+  id?: string;
   key: string;
   label: string;
-  descricao: string;
-  tipo: VarType;
-  escopo: VarScope;
-  /** true = parte do schema oficial; false = custom de um GAP. */
+  category: string; // DOMINIO, DNS, PROXY, BRANDING, etc.
+  description: string;
+  type: VarType;
+  required: boolean;
+  editable: boolean;
   oficial: boolean;
-  obrigatoria: boolean;
-  exemplo?: string;
-  default?: string;
+  defaultValue?: string | null;
+  exemplo?: string | null;
+  validation?: string | null;
+  coreModule?: string | null;
+  /** Valor atual desta variável para a OM em contexto (quando agregado). */
+  value?: string;
 }
 
-export type OrgStatus = 'active' | 'inactive' | 'setup_pending';
-export type AuthBackend = 'sssd' | 'winbind';
-export type AuthMethod = 'ads' | 'ldap';
-export type DeployProfile = 'minimal' | 'standard' | 'full' | 'custom';
+export type OrgStatus = "active" | "inactive" | "setup_pending";
 
+/**
+ * Organização — APENAS metadados (Documentação v3.0).
+ * Todas as configurações técnicas (DNS, proxy, AD, etc.) vivem em `config`,
+ * que é populada a partir de organization_variables.
+ */
 export interface Organization {
   id: string;
   nome: string;
   sigla: string;
   descricao: string;
+  ativo: boolean;
   status: OrgStatus;
-  variaveis: Record<string, string>;
-  // Domain Configuration (V2.0)
-  fqdn: string;
-  netbios: string;
-  realm: string;
-  // Domain Controllers
-  dcPrimaryIp: string;
-  dcSecondaryIp: string | null;
-  dcFqdn: string;
-  // DNS Configuration
-  dnsPrimary: string;
-  dnsSecondary: string | null;
-  searchDomains: string[];
-  // NTP Configuration
-  ntpServers: string[];
-  timezone: string;
-  // Proxy Configuration
-  httpProxy: string;
-  httpsProxy: string;
-  ftpProxy: string | null;
-  noProxy: string[];
-  // Authentication
-  authBackend: AuthBackend;
-  authMethod: AuthMethod;
-  // Printers
-  printServer: string | null;
-  defaultPrinter: string | null;
-  // Deployment
-  deployProfile: DeployProfile;
-  // Legacy fields (for compatibility)
-  dominio: string;
-  dcHostname: string;
-  dcIp: string;
-  metodoAd: ADMethod;
-  distrosSuportadas: Distro[];
-  ambientesSuportados: DesktopEnv[];
-  // Stats
-  serial: number;
-  scriptsAtivos: number;
-  estacoes: number;
   cor: string;
-  criadoEm: string;
+  serial: number;
+  estacoes: number;
+  scriptsAtivos: number;
+  /** Mapa chave→valor de TODAS as variáveis catalogadas para a OM. */
+  config: Record<string, string>;
+  /** Alias legado (mesmo conteúdo de `config`) para compatibilidade. */
+  variaveis: Record<string, string>;
+  branding?: BrandingConfig | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BrandingConfig {
+  orgId: string;
+  displayName?: string | null;
+  wallpaperUrl?: string | null;
+  wallpaperLogin?: string | null;
+  logoUrl?: string | null;
+  greeterUrl?: string | null;
+  theme: string;
+  conkyEnabled: boolean;
+  conkyConfig: any;
+  shortcutsEnabled: boolean;
 }
 
 export interface SeederScript {
@@ -93,26 +99,14 @@ export interface SeederScript {
   nome: string;
   categoria: ScriptCategory;
   descricao: string;
-  finalidade: string;
-  localExecucao: "root" | "usuario" | "login" | "logoff";
-  momento: string;
-  permissoes: string;
-  compatibilidade: Distro[];
-  dependencias: string[];
-  impacto: "baixo" | "medio" | "alto";
-  reinicializacao: boolean;
-  autor: string;
-  /** Variáveis declaradas que este script consome (chaves do catálogo). */
   variaveisUsadas: string[];
-  /** true = oficial central (não editável local), false = custom GAP. */
   oficial: boolean;
   versao: string;
   serial: number;
   status: ScriptStatus;
-  compartilhado: boolean;
-  /** Conteúdo bash. Pode usar `source` do .conf E/OU placeholders {{VAR}}. */
   conteudo: string;
   atualizadoEm: string;
+  autor?: string;
 }
 
 export interface SeederProfile {

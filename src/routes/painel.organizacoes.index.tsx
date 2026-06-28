@@ -73,9 +73,9 @@ function OrganizacoesPage() {
                 </div>
 
                 <div className="space-y-1.5 text-xs font-mono">
-                  <Row icon={Globe} label="FQDN" value={o.fqdn || o.dominio} />
-                  <Row icon={Server} label="DC" value={o.dcFqdn || o.dcHostname} />
-                  <Row icon={Shield} label="Auth" value={`${o.authBackend ?? o.metodoAd}`.toUpperCase()} />
+                  <Row icon={Globe} label="DOMINIO" value={o.config?.DOMINIO ?? ""} />
+                  <Row icon={Server} label="DC_IP" value={o.config?.DC_IP ?? ""} />
+                  <Row icon={Shield} label="Status" value={o.ativo ? "Ativa" : "Inativa"} />
                   <Row icon={Users} label="Estações" value={`${o.estacoes}`} />
                 </div>
 

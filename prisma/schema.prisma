@@ -1,5 +1,10 @@
-// SeederLinux V2.0 - Data Model
-// Based on Documento 03 - Modelo de Dados
+// SeederLinux V3.0 - Data Model
+// Aligned with Documento 03 - Modelo de Dados (v3.0)
+//
+// ARQUITETURA:
+// - Organization = APENAS METADADOS (sem campos técnicos)
+// - VariableDefinition = catálogo oficial (Documento 06)
+// - OrganizationVariable = ÚNICA fonte de verdade dos valores
 
 generator client {
   provider = "prisma-client-js"
@@ -18,29 +23,6 @@ enum AppRole {
   admin_gap
   operador_om
   auditor
-}
-
-enum ADMethod {
-  sssd
-  winbind
-  auto
-}
-
-enum AuthBackend {
-  winbind
-  sssd
-}
-
-enum AuthMethod {
-  ads
-  ldap
-}
-
-enum DeployProfile {
-  minimal
-  standard
-  full
-  custom
 }
 
 enum StationStatus {
@@ -117,91 +99,81 @@ model UserRole {
 }
 
 // =============================================================================
-// ORGANIZATIONS (Complete Model from Doc 03)
+// ORGANIZATIONS (APENAS METADADOS - v3.0)
 // =============================================================================
 
 model Organization {
-  id                String       @id @default(cuid())
-  nome              String
-  sigla             String       @unique
-  descricao         String       @default("")
-  status            OrgStatus    @default(setup_pending)  @map("status")
+  id          String    @id @default(cuid())
+  nome        String    @db.VarChar(255)
+  sigla       String    @unique @db.VarChar(20)
+  descricao   String?   @db.Text
+  ativo       Boolean   @default(true)
+  status      OrgStatus @default(active)
+  cor         String    @default("oklch(0.6 0.15 200)")
+  serial      Int       @default(0)
+  estacoes    Int       @default(0)
+  scriptsAtivos Int     @default(0) @map("scripts_ativos")
 
-  // Domain Configuration (OBRIGATORIO)
-  fqdn              String       @default("")             // ex: comara.intraer
-  netbios           String       @default("")             // ex: COMARA
-  realm             String       @default("")            // ex: COMARA.INTRAER
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  // Domain Controllers (OBRIGATORIO)
-  dcPrimaryIp       String       @default("")  @map("dc_primary_ip")    // IP do DC primario
-  dcSecondaryIp     String?      @map("dc_secondary_ip")   // IP do DC secundario (opcional)
-  dcFqdn            String       @default("")  @map("dc_fqdn")          // Nome do DC
-
-  // DNS Configuration (OBRIGATORIO)
-  dnsPrimary        String       @default("")  @map("dns_primary")
-  dnsSecondary      String?      @map("dns_secondary")
-  searchDomains     String[]     @default([])  @map("search_domains")
-
-  // NTP Configuration (OPCIONAL)
-  ntpServers        String[]     @default([])  @map("ntp_servers")
-  timezone          String       @default("America/Sao_Paulo")
-
-  // Proxy Configuration (OBRIGATORIO)
-  httpProxy         String       @default("")  @map("http_proxy")       // ex: 10.108.88.4:8080
-  httpsProxy        String       @default("")  @map("https_proxy")
-  ftpProxy          String?      @map("ftp_proxy")
-  noProxy           String[]     @default([])  @map("no_proxy")
-
-  // Authentication (OBRIGATORIO)
-  authBackend       AuthBackend  @default(sssd)  @map("auth_backend")
-  authMethod        AuthMethod   @default(ads)   @map("auth_method")
-
-  // Printers (OPCIONAL)
-  printServer       String?      @map("print_server")
-  defaultPrinter    String?      @map("default_printer")
-
-  // Deployment Profile
-  deployProfile     DeployProfile @default(standard)  @map("deploy_profile")
-
-  // Legacy fields (keep for compatibility)
-  dominio           String       @default("")
-  dcHostname        String       @default("")  @map("dc_hostname")
-  dcIp              String       @default("")  @map("dc_ip")
-  metodoAd          ADMethod     @default(auto) @map("metodo_ad")
-  distrosSuportadas String[]     @default([])
-  ambientesSuportados String[]   @default([])
-
-  // Serial and Stats
-  serial            BigInt       @default(0)
-  cor               String       @default("oklch(0.6 0.15 200)")
-  estacoes          Int          @default(0)
-  scriptsAtivos     Int          @default(0)
-
-  // Timestamps
-  criadoEm          DateTime     @default(now()) @map("criado_em")
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-
-  // Relations
-  variables         OrgVariable[]
-  stations          Station[]
-  branding          BrandingConfig?
-  profiles          SeederProfile[]
-  browserPolicies   BrowserPolicy[]
+  // Relacionamentos
+  variables       OrganizationVariable[]
+  stations        Station[]
+  branding        BrandingConfig?
+  profiles        SeederProfile[]
+  browserPolicies BrowserPolicy[]
+  printerProfiles PrinterProfile[]
+  repositories    Repository[]
 
   @@map("organizations")
 }
 
-model OrgVariable {
-  orgId     String
-  key       String
-  value     String   @default("")
-  updatedAt DateTime @default(now()) @map("updated_at")
+// =============================================================================
+// VARIABLE CATALOG (catálogo oficial — Documento 06)
+// =============================================================================
 
-  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+model VariableDefinition {
+  id            String   @id @default(cuid())
+  key           String   @unique @db.VarChar(80)
+  label         String   @db.VarChar(120)
+  category      String   @db.VarChar(40)        // DOMAIN, DNS, NTP, PROXY, AD, BRANDING, etc.
+  description   String   @db.Text
+  type          String   @default("string")     // string, boolean, integer, ip, url, array
+  required      Boolean  @default(false)
+  editable      Boolean  @default(true)
+  oficial       Boolean  @default(true)
+  defaultValue  String?  @map("default_value")
+  exemplo       String?
+  validation    String?                          // regex pattern (opcional)
+  coreModule    String?  @map("core_module")    // Core.Domain, Core.Branding, etc.
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  @@id([orgId, key])
-  @@map("org_variables")
+  values        OrganizationVariable[]
+
+  @@index([category])
+  @@map("variable_definitions")
+}
+
+// =============================================================================
+// ORGANIZATION VARIABLES (ÚNICA FONTE DE VERDADE)
+// =============================================================================
+
+model OrganizationVariable {
+  id              String   @id @default(cuid())
+  organizationId  String   @map("organization_id")
+  definitionId    String   @map("definition_id")
+  value           String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  definition   VariableDefinition  @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, definitionId])
+  @@index([organizationId])
+  @@map("organization_variables")
 }
 
 // =============================================================================
@@ -210,7 +182,7 @@ model OrgVariable {
 
 model BrandingConfig {
   orgId         String   @id @map("org_id")
-  displayName   String?  @map("display_name")    // Nome para exibicao
+  displayName   String?  @map("display_name")
   wallpaperUrl  String?  @map("wallpaper_url")
   wallpaperLogin String? @map("wallpaper_login")
   logoUrl       String?  @map("logo_url")
@@ -233,7 +205,7 @@ model BrandingConfig {
 model BrowserPolicy {
   id              String   @id @default(cuid())
   orgId           String   @map("org_id")
-  browser         String   // firefox, chrome, chromium
+  browser         String
   homepage        String?
   bookmarksEnabled Boolean @default(false) @map("bookmarks_enabled")
   proxyEnabled    Boolean  @default(false) @map("proxy_enabled")
@@ -274,13 +246,13 @@ model Script {
   descricao       String         @default("")
   categoria       ScriptCategory @default(custom)
   versao          String         @default("1.0.0")
-  serial          BigInt          @default(0)
+  serial          BigInt         @default(0)
   status          ScriptStatus   @default(rascunho)
   conteudo        String         @default("")
   variaveisUsadas String[]       @default([])
   autor           String         @default("")
   oficial         Boolean        @default(false)
-  scriptType      String         @default("CUSTOM") // CORE ou CUSTOM
+  scriptType      String         @default("CUSTOM")
   checksum        String?
   compatibilidade String[]       @default(["ubuntu", "linuxmint", "debian"])
   prioidade       Int            @default(0)
@@ -302,7 +274,7 @@ model SeederProfile {
   scriptIds         String[] @default([])
   organizacaoOrigem String?  @map("organizacao_origem")
   publico           Boolean  @default(false)
-  profileType       String   @default("standard") // minimal, standard, full, custom
+  profileType       String   @default("standard")
   criadoEm          DateTime @default(now()) @map("criado_em")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -384,8 +356,8 @@ model NetworkInterface {
   macAddress    String?  @map("mac_address")
   ipAddress     String?  @map("ip_address")
   gateway       String?
-  dnsPrimary   String?  @map("dns_primary")
-  dnsSecondary String?  @map("dns_secondary")
+  dnsPrimary    String?  @map("dns_primary")
+  dnsSecondary  String?  @map("dns_secondary")
   isPrimary     Boolean  @default(false) @map("is_primary")
   updatedAt     DateTime @default(now()) @map("updated_at")
 
@@ -442,24 +414,8 @@ model StationUser {
 }
 
 // =============================================================================
-// CATALOGS & CONFIG
+// SYSTEM CONFIG
 // =============================================================================
-
-model VariableCatalog {
-  key          String   @id
-  label        String
-  descricao    String   @default("")
-  tipo         String   @default("string")
-  escopo       String   @default("custom")
-  oficial      Boolean  @default(false)
-  obrigatoria  Boolean  @default(false)
-  exemplo      String?
-  defaultValue String?  @map("default_value")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@map("variable_catalog")
-}
 
 model SystemConfig {
   key       String   @id
@@ -520,9 +476,9 @@ model Job {
   id          String   @id @default(cuid())
   orgId       String?  @map("org_id")
   stationId   String?  @map("station_id")
-  jobType     String   @map("job_type") // deploy, update, script, inventory
+  jobType     String   @map("job_type")
   payload     Json     @default("{}")
-  status      String   @default("pending") // pending, running, completed, failed
+  status      String   @default("pending")
   scheduledAt DateTime @default(now()) @map("scheduled_at")
   startedAt   DateTime? @map("started_at")
   finishedAt  DateTime? @map("finished_at")
@@ -573,7 +529,7 @@ model DeploymentTask {
 model FileRecord {
   id          String   @id @default(cuid())
   orgId       String?  @map("org_id")
-  fileType    String   @map("file_type") // logo, wallpaper, greeter, certificate, package, script
+  fileType    String   @map("file_type")
   filename    String
   path        String
   checksum    String?
@@ -598,6 +554,7 @@ model PrinterProfile {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  organization   Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
   queues         PrinterQueue[]
 
   @@map("printer_profiles")
@@ -620,70 +577,6 @@ model PrinterQueue {
 }
 
 // =============================================================================
-// SOFTWARE PROFILES
-// =============================================================================
-
-model SoftwareProfile {
-  id          String   @id @default(cuid())
-  orgId       String   @map("org_id")
-  name        String
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  packages    SoftwarePackage[]
-
-  @@map("software_profiles")
-}
-
-model SoftwarePackage {
-  id             String   @id @default(cuid())
-  profileId      String   @map("profile_id")
-  packageName    String   @map("package_name")
-  packageVersion String?  @map("package_version")
-  enabled        Boolean  @default(true)
-  mandatory     Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  softwareProfile SoftwareProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-
-  @@map("software_packages")
-}
-
-model LegacyApplication {
-  id             String   @id @default(cuid())
-  orgId          String   @map("org_id")
-  name           String
-  description    String?
-  category       String?
-  installScript  String?  @map("install_script")
-  dependencies   String[] @default([])
-  enabled        Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  versions       LegacyApplicationVersion[]
-
-  @@map("legacy_applications")
-}
-
-model LegacyApplicationVersion {
-  id             String   @id @default(cuid())
-  applicationId  String   @map("application_id")
-  version        String
-  installerScript String? @map("installer_script")
-  checksum       String?
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  legacyApplication LegacyApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-
-  @@map("legacy_application_versions")
-}
-
-// =============================================================================
 // REPOSITORIES
 // =============================================================================
 
@@ -691,44 +584,14 @@ model Repository {
   id          String   @id @default(cuid())
   orgId       String?  @map("org_id")
   name        String
-  type        String   // apt, rpm, local
+  type        String
   url         String?
   enabled     Boolean  @default(true)
   isOfficial  Boolean  @default(false) @map("is_official")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  organization Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
   @@map("repositories")
-}
-
-// =============================================================================
-// UPDATE CHANNELS
-// =============================================================================
-
-model UpdateChannel {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  updates     Update[]
-
-  @@map("update_channels")
-}
-
-model Update {
-  id          String   @id @default(cuid())
-  channelId   String   @map("channel_id")
-  version     String
-  description String?
-  releaseDate DateTime @default(now()) @map("release_date")
-  checksum    String?
-  changelog   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  channel     UpdateChannel @relation(fields: [channelId], references: [id])
-
-  @@map("updates")
 }

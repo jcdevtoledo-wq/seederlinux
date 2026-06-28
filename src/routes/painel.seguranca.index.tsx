@@ -89,7 +89,7 @@ function SegurancaPage() {
         maxOfflineLogins: config.maxOfflineLogins,
         autoSync: config.autoSync,
         sssdConfig: config.sssdConfig,
-        adDomain: org?.fqdn || "",
+        adDomain: org?.config?.DOMINIO || "",
       });
       toast.success("Configuracoes de seguranca salvas");
     } catch (e) {
@@ -109,7 +109,7 @@ services = nss, pam
 
 [domain/default]
 id_provider = ad
-ad_domain = ${org?.fqdn || "DOMAIN"}
+ad_domain = ${org?.config?.DOMINIO || "DOMAIN"}
 auth_provider = ad
 chpass_provider = ad
 access_provider = ad

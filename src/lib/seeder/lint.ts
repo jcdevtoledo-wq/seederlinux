@@ -1,5 +1,5 @@
 import { extractUsedVars } from "./variables";
-import type { VariableDef } from "./types";
+import type { VariableDefinition } from "./types";
 
 export type LintSeverity = "error" | "warn" | "info";
 export interface LintIssue {
@@ -17,7 +17,7 @@ const RM_RF_ROOT = /\brm\s+-rf\s+\/(\s|$)/;
 const MISSING_SHEBANG = /^#!/;
 const MISSING_SET_E = /\bset\s+-[a-z]*e/;
 
-export function lintScript(content: string, catalog: VariableDef[]): LintIssue[] {
+export function lintScript(content: string, catalog: VariableDefinition[]): LintIssue[] {
   const issues: LintIssue[] = [];
   const lines = content.split(/\r?\n/);
 

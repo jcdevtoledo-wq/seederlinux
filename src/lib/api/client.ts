@@ -81,7 +81,7 @@ export const authApi = {
   logout: () => api<{ success: boolean }>('/api/auth/logout', { method: 'POST' }),
 };
 
-// Setup API
+// Setup API (v3.0 — variáveis em vez de campos técnicos)
 export const setupApi = {
   status: () => api<{ completed: boolean }>('/api/setup/status', { auth: false }),
 
@@ -92,24 +92,9 @@ export const setupApi = {
     adminName: string;
     orgName: string;
     orgSigla: string;
-    fqdn?: string;
-    netbios?: string;
-    realm?: string;
-    dcPrimaryIp?: string;
-    dcSecondaryIp?: string;
-    dcFqdn?: string;
-    dnsPrimary?: string;
-    dnsSecondary?: string;
-    searchDomains?: string[];
-    ntpServers?: string[];
-    timezone?: string;
-    httpProxy?: string;
-    httpsProxy?: string;
-    noProxy?: string[];
-    authBackend?: 'sssd' | 'winbind';
-    authMethod?: 'ads' | 'ldap';
-    printServer?: string;
-    defaultPrinter?: string;
+    orgDescricao?: string;
+    /** Variáveis iniciais para a OM (chaves do catálogo Doc 06). */
+    variables?: Record<string, string>;
   }) =>
     api<{ success: boolean; token: string; user: any; organization: any }>(
       '/api/setup',
@@ -162,10 +147,53 @@ export const scriptsApi = {
     api<{ success: boolean }>(`/api/scripts/${id}`, { method: 'DELETE' }),
 };
 
-// Variables API
+// Variables API (v3.0 — catálogo + variáveis por OM)
 export const variablesApi = {
-  list: (orgId: string) => api<{ orgId: string; sigla: string; variables: any[] }>(`/api/variables/${orgId}`),
+  /** Catálogo global (definições). */
+  catalog: () => api<any[]>('/api/variables/catalog'),
 
+  addToCatalog: (data: {
+    key: string;
+    label: string;
+    category: string;
+    description: string;
+    type: string;
+    required?: boolean;
+    editable?: boolean;
+    defaultValue?: string | null;
+    exemplo?: string | null;
+    validation?: string | null;
+    coreModule?: string | null;
+  }) => api<any>('/api/variables/catalog', { method: 'POST', body: data }),
+
+  deleteFromCatalog: (key: string) =>
+    api<{ success: boolean }>(`/api/variables/catalog/${key}`, { method: 'DELETE' }),
+
+  /** Variáveis de uma OM, com catálogo + valor atual unificados. */
+  listForOrg: (orgId: string) =>
+    api<any[]>(`/api/organizations/${orgId}/variables`),
+
+  /** Atualiza múltiplas variáveis (incrementa serial). */
+  bulkUpdate: (orgId: string, variables: Record<string, string>) =>
+    api<{ success: boolean; updated: number; serial: number }>(
+      `/api/organizations/${orgId}/variables`,
+      { method: 'PUT', body: { variables } }
+    ),
+
+  /** Atualiza uma única variável (incrementa serial). */
+  setOne: (orgId: string, key: string, value: string) =>
+    api<{ success: boolean; serial: number }>(
+      `/api/organizations/${orgId}/variables/${key}`,
+      { method: 'PUT', body: { value } }
+    ),
+
+  /** Legado: lista chave/valor "achatada". */
+  list: (orgId: string) =>
+    api<{ orgId: string; sigla: string; variables: { key: string; value: string }[] }>(
+      `/api/variables/${orgId}`
+    ),
+
+  /** Legado: setar valor único via endpoint global. */
   set: (orgId: string, key: string, value: string) =>
     api<{ success: boolean }>('/api/variables', {
       method: 'POST',
@@ -174,20 +202,24 @@ export const variablesApi = {
 
   delete: (orgId: string, key: string) =>
     api<{ success: boolean }>(`/api/variables/${orgId}/${key}`, { method: 'DELETE' }),
+};
 
-  catalog: () => api<any[]>('/api/variables/catalog'),
+// Organization helpers — validador e exportador .conf
+export const organizationConfigApi = {
+  validate: (orgId: string) =>
+    api<{
+      valid: boolean;
+      missing: Array<{ key: string; category: string; description: string }>;
+      invalid: Array<{ key: string; value: string; expected_type: string }>;
+      total_required: number;
+      configured: number;
+    }>(`/api/organizations/${orgId}/validate`),
 
-  addToCatalog: (data: {
-    key: string;
-    label: string;
-    descricao: string;
-    tipo: string;
-    escopo: string;
-    oficial: boolean;
-    obrigatoria: boolean;
-    exemplo?: string | null;
-    defaultValue?: string | null;
-  }) => api<any>('/api/variables/catalog', { method: 'POST', body: data }),
+  exportConf: (orgId: string) =>
+    api<{
+      success: boolean;
+      data: { content: string; path: string; serial: number; filename: string };
+    }>(`/api/organizations/${orgId}/export`, { method: 'POST' }),
 };
 
 // Branding API

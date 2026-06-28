@@ -16,9 +16,8 @@ Gerado em ${new Date().toISOString()}
 
 ## Organização
 - Sigla: ${org.sigla}
-- Domínio: ${org.dominio}
-- DC: ${org.dcHostname} (${org.dcIp})
-- Método AD: ${org.metodoAd}
+- Domínio: ${org.config?.DOMINIO ?? "-"}
+- DC: ${org.config?.DC_IP ?? "-"}
 - Serial: ${org.serial}
 
 ## Modelo de execução
@@ -30,30 +29,17 @@ desta OM. Para alterar comportamento, edite as variáveis — não os scripts.
 ## Verificação de integridade
 
 O arquivo \`manifest.json\` contém o SHA-256 de cada script incluído.
-Para auditar:
-
-\`\`\`bash
-cd /opt/seederlinux
-sha256sum bin/*.sh user/*.sh lib/*.sh 2>/dev/null
-\`\`\`
 
 ## Estrutura
 \`\`\`
 seederlinux/
-├── etc/${org.sigla.toLowerCase()}.conf   # variáveis da OM
-├── etc/versao.conf            # serial global
-├── bin/                       # scripts orquestradores (root)
-├── lib/                       # bibliotecas auxiliares
-├── user/                      # scripts de sessão
-├── manifest.json              # inventário + checksums
+├── etc/${org.sigla.toLowerCase()}.conf
+├── etc/versao.conf
+├── bin/
+├── lib/
+├── user/
+├── manifest.json
 └── README.md
-\`\`\`
-
-## Instalação
-\`\`\`bash
-sudo tar -xzf ${org.sigla.toLowerCase()}_seeder.tar.gz -C /opt/
-sudo chmod -R 755 /opt/seederlinux/bin /opt/seederlinux/user
-sudo /opt/seederlinux/bin/ingressar_dominio.sh
 \`\`\`
 
 ## Scripts incluídos (${scripts.length})
@@ -61,21 +47,17 @@ ${scripts
   .map(
     (s) =>
       `- **${s.nome}** \`v${s.versao}\` · ${s.categoria} — ${s.descricao}\n  vars: ${
-        s.variaveisUsadas.join(", ") || "—"
+        (s.variaveisUsadas ?? []).join(", ") || "—"
       }`,
   )
   .join("\n")}
 `;
 
 function folderForScript(s: SeederScript): string {
-  switch (s.localExecucao) {
-    case "usuario":
-    case "login":
-    case "logoff":
-      return "user";
-    default:
-      return s.categoria === "ingresso" || s.categoria === "atualizacao" ? "bin" : "lib";
-  }
+  const cat = s.categoria;
+  if (cat === "logon" || cat === "logoff" || cat === "usuario") return "user";
+  if (cat === "ingresso" || cat === "atualizacao" || cat === "core") return "bin";
+  return "lib";
 }
 
 export interface BundleManifest {
@@ -94,15 +76,11 @@ export interface BundleManifest {
   }>;
 }
 
-export async function buildBundle(
-  org: Organization,
-  scripts: SeederScript[],
-  variables?: import("./types").VariableDef[],
-): Promise<Blob> {
+export async function buildBundle(org: Organization, scripts: SeederScript[]): Promise<Blob> {
   const zip = new JSZip();
   const root = zip.folder("seederlinux")!;
 
-  root.file(`etc/${org.sigla.toLowerCase()}.conf`, generateOrgConfBash(org, variables));
+  root.file(`etc/${org.sigla.toLowerCase()}.conf`, generateOrgConfBash(org));
   root.file("etc/versao.conf", `SERIAL_GLOBAL=${org.serial}\nSIGLA=${org.sigla}\n`);
 
   const manifestScripts: BundleManifest["scripts"] = [];
@@ -117,8 +95,8 @@ export async function buildBundle(
       categoria: s.categoria,
       versao: s.versao,
       sha256: await sha256(conteudo),
-      variaveisUsadas: s.variaveisUsadas,
-      autor: s.autor,
+      variaveisUsadas: s.variaveisUsadas ?? [],
+      autor: s.autor ?? "",
     });
   }
 

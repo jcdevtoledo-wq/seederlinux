@@ -202,7 +202,7 @@ function BrandingPage() {
               <div className="font-semibold">{selectedOrg.sigla}</div>
               <div className="text-sm text-muted-foreground">{selectedOrg.nome}</div>
             </div>
-            <Badge variant="outline" className="ml-auto">{selectedOrg.fqdn || selectedOrg.dominio}</Badge>
+            <Badge variant="outline" className="ml-auto">{selectedOrg.config?.DOMINIO ?? selectedOrg.sigla}</Badge>
           </CardContent>
         </Card>
       )}

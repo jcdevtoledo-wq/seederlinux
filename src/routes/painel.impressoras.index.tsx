@@ -85,7 +85,7 @@ function PrintersPage() {
       const org = orgs.find((o) => o.id === selectedOrgId);
       setForm({
         orgId: selectedOrgId,
-        cupsServer: org?.printServer || "",
+        cupsServer: org?.config?.PRINT_SERVER || "",
         queues: [],
       });
     }

@@ -21,32 +21,48 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAddVariable } from "@/lib/seeder/variables-api";
-import type { VariableDef, VarType, VarScope } from "@/lib/seeder/types";
+import type { VarType, VariableDefinition } from "@/lib/seeder/types";
 import { toast } from "sonner";
 
 interface Props {
   trigger: React.ReactNode;
 }
 
-const TIPOS: VarType[] = ["string", "ip", "url", "porta", "bool", "path"];
-const ESCOPOS: VarScope[] = ["diretorio", "rede", "servicos", "identidade", "personalizacao", "custom"];
+const TIPOS: VarType[] = ["string", "boolean", "integer", "ip", "url", "array"];
+const CATEGORIAS = [
+  "DOMINIO",
+  "ARQUIVOS",
+  "NAVEGADORES",
+  "BRANDING",
+  "INVENTARIO",
+  "REMOTO",
+  "IMPRESSORAS",
+  "CERTIFICADOS",
+  "REPOSITORIOS",
+  "MIRROR",
+  "AGENTE",
+  "SEGURANCA",
+  "INTEGRACOES",
+  "CUSTOM",
+];
 
 export function VariableFormDialog({ trigger }: Props) {
   const add = useAddVariable();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<VariableDef>({
+  const [form, setForm] = useState<VariableDefinition>({
     key: "",
     label: "",
-    descricao: "",
-    tipo: "string",
-    escopo: "custom",
+    description: "",
+    type: "string",
+    category: "CUSTOM",
+    required: false,
+    editable: true,
     oficial: false,
-    obrigatoria: false,
+    defaultValue: "",
     exemplo: "",
-    default: "",
   });
 
-  const set = <K extends keyof VariableDef>(k: K, v: VariableDef[K]) =>
+  const set = <K extends keyof VariableDefinition>(k: K, v: VariableDefinition[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
   const handleSave = async () => {
@@ -71,7 +87,7 @@ export function VariableFormDialog({ trigger }: Props) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-xl" data-testid="variable-form-dialog">
         <DialogHeader>
           <DialogTitle>Nova variável customizada</DialogTitle>
           <DialogDescription>
@@ -83,6 +99,7 @@ export function VariableFormDialog({ trigger }: Props) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Chave (UPPER_SNAKE) *">
               <Input
+                data-testid="variable-form-key"
                 value={form.key}
                 onChange={(e) => set("key", e.target.value.toUpperCase())}
                 placeholder="MEU_SERVIDOR"
@@ -90,21 +107,34 @@ export function VariableFormDialog({ trigger }: Props) {
               />
             </Field>
             <Field label="Label *">
-              <Input value={form.label} onChange={(e) => set("label", e.target.value)} placeholder="Meu servidor" />
+              <Input
+                data-testid="variable-form-label"
+                value={form.label}
+                onChange={(e) => set("label", e.target.value)}
+                placeholder="Meu servidor"
+              />
             </Field>
             <Field label="Tipo">
-              <Select value={form.tipo} onValueChange={(v) => set("tipo", v as VarType)}>
+              <Select value={form.type} onValueChange={(v) => set("type", v as VarType)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {TIPOS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  {TIPOS.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="Escopo">
-              <Select value={form.escopo} onValueChange={(v) => set("escopo", v as VarScope)}>
+            <Field label="Categoria">
+              <Select value={form.category} onValueChange={(v) => set("category", v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {ESCOPOS.map((e) => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+                  {CATEGORIAS.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </Field>
@@ -112,8 +142,9 @@ export function VariableFormDialog({ trigger }: Props) {
 
           <Field label="Descrição">
             <Textarea
-              value={form.descricao}
-              onChange={(e) => set("descricao", e.target.value)}
+              data-testid="variable-form-description"
+              value={form.description}
+              onChange={(e) => set("description", e.target.value)}
               rows={2}
               placeholder="Para que serve esta variável?"
             />
@@ -121,22 +152,44 @@ export function VariableFormDialog({ trigger }: Props) {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Exemplo">
-              <Input value={form.exemplo ?? ""} onChange={(e) => set("exemplo", e.target.value)} />
+              <Input
+                value={form.exemplo ?? ""}
+                onChange={(e) => set("exemplo", e.target.value)}
+              />
             </Field>
-            <Field label="Default">
-              <Input value={form.default ?? ""} onChange={(e) => set("default", e.target.value)} />
+            <Field label="Valor padrão">
+              <Input
+                value={form.defaultValue ?? ""}
+                onChange={(e) => set("defaultValue", e.target.value)}
+              />
             </Field>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Switch checked={form.obrigatoria} onCheckedChange={(v) => set("obrigatoria", v)} id="obrig" />
-            <Label htmlFor="obrig" className="text-sm">Obrigatória</Label>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={form.required}
+                onCheckedChange={(v) => set("required", v)}
+                id="required"
+              />
+              <Label htmlFor="required" className="text-sm">Obrigatória</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={form.editable}
+                onCheckedChange={(v) => set("editable", v)}
+                id="editable"
+              />
+              <Label htmlFor="editable" className="text-sm">Editável</Label>
+            </div>
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={add.isPending}>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSave} disabled={add.isPending} data-testid="variable-form-save">
             {add.isPending ? "Salvando…" : "Adicionar ao catálogo"}
           </Button>
         </DialogFooter>

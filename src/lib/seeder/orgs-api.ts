@@ -1,60 +1,28 @@
-// Cloud-backed CRUD para organizations + org_variables.
-// Mapeia entre o schema do banco (snake_case) e o tipo Organization do app.
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+// SeederLinux v3.0 — Organizações
+// API client adaptado ao novo modelo: Organization é apenas metadados; a
+// configuração técnica vive em `config` (mapa chave→valor das variáveis).
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { organizationsApi, variablesApi } from "@/lib/api/client";
-import type { Organization, ADMethod, Distro, DesktopEnv } from "./types";
+import type { Organization } from "./types";
 
-function apiToOrg(data: any, vars: any[] = []): Organization {
-  const variaveis: Record<string, string> = {};
-  for (const v of vars) variaveis[v.key] = v.value;
+function apiToOrg(data: any): Organization {
+  const config: Record<string, string> = data.config ?? {};
   return {
     id: data.id,
     nome: data.nome,
     sigla: data.sigla,
     descricao: data.descricao ?? "",
-    status: data.status ?? "active",
-    variaveis,
-    // Domain Configuration
-    fqdn: data.fqdn ?? "",
-    netbios: data.netbios ?? "",
-    realm: data.realm ?? "",
-    // Domain Controllers
-    dcPrimaryIp: data.dcPrimaryIp ?? data.dc_primary_ip ?? "",
-    dcSecondaryIp: data.dcSecondaryIp ?? data.dc_secondary_ip ?? null,
-    dcFqdn: data.dcFqdn ?? data.dc_fqdn ?? "",
-    // DNS Configuration
-    dnsPrimary: data.dnsPrimary ?? data.dns_primary ?? "",
-    dnsSecondary: data.dnsSecondary ?? data.dns_secondary ?? null,
-    searchDomains: data.searchDomains ?? data.search_domains ?? [],
-    // NTP Configuration
-    ntpServers: data.ntpServers ?? data.ntp_servers ?? [],
-    timezone: data.timezone ?? "America/Sao_Paulo",
-    // Proxy Configuration
-    httpProxy: data.httpProxy ?? data.http_proxy ?? "",
-    httpsProxy: data.httpsProxy ?? data.https_proxy ?? "",
-    ftpProxy: data.ftpProxy ?? data.ftp_proxy ?? null,
-    noProxy: data.noProxy ?? data.no_proxy ?? [],
-    // Authentication
-    authBackend: data.authBackend ?? data.auth_backend ?? "sssd",
-    authMethod: data.authMethod ?? data.auth_method ?? "ads",
-    // Printers
-    printServer: data.printServer ?? data.print_server ?? null,
-    defaultPrinter: data.defaultPrinter ?? data.default_printer ?? null,
-    // Deployment
-    deployProfile: data.deployProfile ?? data.deploy_profile ?? "standard",
-    // Legacy fields
-    dominio: data.dominio ?? data.fqdn ?? "",
-    dcHostname: data.dcHostname ?? data.dc_hostname ?? data.dcFqdn ?? "",
-    dcIp: data.dcIp ?? data.dc_ip ?? data.dcPrimaryIp ?? "",
-    metodoAd: (data.metodoAd ?? data.metodo_ad ?? data.authBackend ?? "auto") as ADMethod,
-    distrosSuportadas: data.distrosSuportadas ?? [],
-    ambientesSuportados: data.ambientesSuportados ?? [],
-    // Stats
-    serial: Number(data.serial ?? 0),
-    scriptsAtivos: data.scriptsAtivos ?? 0,
-    estacoes: data.estacoes ?? 0,
+    ativo: data.ativo ?? true,
+    status: (data.status ?? "active") as Organization["status"],
     cor: data.cor ?? "oklch(0.6 0.15 200)",
-    criadoEm: data.criadoEm ?? data.criado_em ?? data.createdAt ?? new Date().toISOString(),
+    serial: Number(data.serial ?? 0),
+    estacoes: Number(data.estacoes ?? 0),
+    scriptsAtivos: Number(data.scriptsAtivos ?? data.scripts_ativos ?? 0),
+    config,
+    variaveis: config,
+    branding: data.branding ?? null,
+    createdAt: data.created_at ?? data.createdAt ?? new Date().toISOString(),
+    updatedAt: data.updated_at ?? data.updatedAt ?? new Date().toISOString(),
   };
 }
 
@@ -75,72 +43,39 @@ export function useOrganization(id: string) {
     queryKey: [...ORGS_QK, id],
     queryFn: async (): Promise<Organization> => {
       const data = await organizationsApi.get(id);
-      return apiToOrg(data, data.variables ?? []);
+      return apiToOrg(data);
     },
     enabled: !!id,
   });
 }
 
+export interface UpsertOrgInput {
+  id?: string;
+  nome: string;
+  sigla: string;
+  descricao?: string;
+  ativo?: boolean;
+  cor?: string;
+  /** Map de variáveis (chave→valor). */
+  config?: Record<string, string>;
+}
+
 export function useUpsertOrganization() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (org: Organization) => {
-      const data: any = {
+    mutationFn: async (org: UpsertOrgInput) => {
+      const payload: any = {
         nome: org.nome,
         sigla: org.sigla,
-        descricao: org.descricao,
-        status: org.status ?? "active",
-        // Domain Configuration
-        fqdn: org.fqdn,
-        netbios: org.netbios,
-        realm: org.realm,
-        // Domain Controllers
-        dcPrimaryIp: org.dcPrimaryIp,
-        dcSecondaryIp: org.dcSecondaryIp,
-        dcFqdn: org.dcFqdn,
-        // DNS Configuration
-        dnsPrimary: org.dnsPrimary,
-        dnsSecondary: org.dnsSecondary,
-        searchDomains: org.searchDomains,
-        // NTP Configuration
-        ntpServers: org.ntpServers,
-        timezone: org.timezone,
-        // Proxy Configuration
-        httpProxy: org.httpProxy,
-        httpsProxy: org.httpsProxy,
-        ftpProxy: org.ftpProxy,
-        noProxy: org.noProxy,
-        // Authentication
-        authBackend: org.authBackend,
-        authMethod: org.authMethod,
-        // Printers
-        printServer: org.printServer,
-        defaultPrinter: org.defaultPrinter,
-        // Deployment
-        deployProfile: org.deployProfile,
-        // Legacy fields
-        dominio: org.dominio || org.fqdn,
-        dcHostname: org.dcHostname || org.dcFqdn,
-        dcIp: org.dcIp || org.dcPrimaryIp,
-        metodoAd: org.metodoAd || org.authBackend,
-        distrosSuportadas: org.distrosSuportadas,
-        ambientesSuportados: org.ambientesSuportados,
+        descricao: org.descricao ?? "",
+        ativo: org.ativo ?? true,
         cor: org.cor,
+        config: org.config ?? undefined,
       };
-
       if (org.id) {
-        await organizationsApi.update(org.id, data);
-        const entries = Object.entries(org.variaveis);
-        for (const [key, value] of entries) {
-          await variablesApi.set(org.id, key, value);
-        }
-      } else {
-        const created = await organizationsApi.create(data);
-        const entries = Object.entries(org.variaveis);
-        for (const [key, value] of entries) {
-          await variablesApi.set(created.id, key, value);
-        }
+        return organizationsApi.update(org.id, payload);
       }
+      return organizationsApi.create(payload);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ORGS_QK }),
   });
@@ -150,9 +85,25 @@ export function useSetOrgVariable() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (p: { orgId: string; key: string; value: string }) => {
-      await variablesApi.set(p.orgId, p.key, p.value);
+      await variablesApi.setOne(p.orgId, p.key, p.value);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ORGS_QK }),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ORGS_QK });
+      qc.invalidateQueries({ queryKey: [...ORGS_QK, vars.orgId] });
+    },
+  });
+}
+
+export function useBulkUpdateOrgVariables() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (p: { orgId: string; variables: Record<string, string> }) => {
+      return variablesApi.bulkUpdate(p.orgId, p.variables);
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ORGS_QK });
+      qc.invalidateQueries({ queryKey: [...ORGS_QK, vars.orgId] });
+    },
   });
 }
 
